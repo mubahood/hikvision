@@ -1,0 +1,20 @@
+[Unit]
+Description=Hikvision ISAPI Bridge Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/hikvision-bridge
+ExecStart=/home/pi/hikvision-bridge/venv/bin/python3 /home/pi/hikvision-bridge/hikvision_bridge.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment file
+EnvironmentFile=/home/pi/hikvision-bridge/.env
+
+[Install]
+WantedBy=multi-user.target
