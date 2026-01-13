@@ -153,21 +153,30 @@ LOG_LEVEL=INFO
 
 ## 🔌 Webhook Integration
 
-Events are POSTed to your webhook URL as JSON:
+Events are batched and POSTed to your webhook URL as JSON:
+
+### Batch Upload Format
+
+The bridge collects events and uploads them in batches to `/api/webhook/events/batch`:
 
 ```json
 {
-  "event_id": 123,
-  "device_id": "door1",
-  "device_ip": "192.168.1.128",
-  "event_type": "AccessControllerEvent",
-  "employee_no": "10001",
-  "name": "John Doe",
-  "door_no": 1,
-  "verify_mode": "face",
-  "occur_time": "2026-01-12T14:30:00",
-  "attendance_status": "checkIn",
-  "serial_no": 12345
+  "events": [
+    {
+      "event_serial": "12345-67890",
+      "employee_no": "10001",
+      "employee_name": "John Doe",
+      "event_time": "2026-01-12T14:30:00",
+      "door_name": "1",
+      "major_event_type": 5,
+      "minor_event_type": 75,
+      "verification_method": "face",
+      "device_name": "door1",
+      "device_ip": "192.168.1.128",
+      "raw_data": { /* full Hikvision event JSON */ }
+    },
+    // ... more events
+  ]
 }
 ```
 
@@ -176,7 +185,21 @@ Events are POSTed to your webhook URL as JSON:
 - `X-API-Key: your_api_key_here`
 - `User-Agent: HikvisionBridge/1.0`
 
-**Expected Response:** HTTP 200 OK
+**Expected Response:**
+```json
+{
+  "success": true,
+  "success_count": 8,
+  "duplicate_count": 2,
+  "failed_count": 0,
+  "total_received": 10
+}
+```
+
+**Configuration:**
+- Set `BATCH_UPLOAD_SIZE` in `.env` (default: 10 events per batch)
+- Batches upload automatically when full or on shutdown
+- Endpoint: `{WEBHOOK_URL}/batch`
 
 ---
 

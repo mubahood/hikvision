@@ -69,6 +69,10 @@ class HikvisionBridge:
         self.last_serial_no = 0  # Track last processed event serial number
         self.processed_serials: Set[int] = set()  # Track processed events to avoid duplicates
         
+        # Batch upload management
+        self.event_batch = []  # Queue for batching events
+        self.batch_upload_size = int(os.getenv('BATCH_UPLOAD_SIZE', '10'))  # Events per batch
+        
         # Database connection
         self.db = get_db() if DB_AVAILABLE else None
         if self.db:
@@ -146,7 +150,7 @@ class HikvisionBridge:
             self.webhook_secret = os.getenv('WEBHOOK_SECRET')
     
     def _sync_event_immediately(self, event_id: int, event_data: Dict[str, Any]) -> bool:
-        """Immediately sync event to webhook after saving"""
+        """Add event to batch queue for upload"""
         if not self.webhook_url:
             self.logger.debug("No webhook URL configured, skipping auto-sync")
             return False
@@ -160,20 +164,42 @@ class HikvisionBridge:
         
         # Prepare payload
         payload = {
-            'event_id': event_id,
-            'device_ip': event_data.get('device_ip'),
-            'device_id': event_data.get('device_id'),
-            'event_type': event_data.get('event_type'),
-            'occur_time': occur_time,
+            'event_serial': event_data.get('serial_no'),  # Updated field name
             'employee_no': str(event_data.get('employee_no')) if event_data.get('employee_no') else None,
-            'name': event_data.get('name'),
-            'door_no': event_data.get('door_no'),
-            'verify_mode': event_data.get('verify_mode'),
-            'attendance_status': event_data.get('attendance_status'),
-            'card_no': event_data.get('card_no'),
+            'employee_name': event_data.get('name'),
+            'event_time': occur_time,
+            'door_name': event_data.get('door_no'),
             'major_event_type': event_data.get('major_event_type'),
-            'sub_event_type': event_data.get('sub_event_type'),
+            'minor_event_type': event_data.get('sub_event_type'),
+            'verification_method': event_data.get('verify_mode'),
+            'device_name': event_data.get('device_id'),
+            'device_ip': event_data.get('device_ip'),
+            'raw_data': event_data.get('raw_json', {}),
         }
+        
+        # Add to batch
+        self.event_batch.append({
+            'event_id': event_id,
+            'payload': payload
+        })
+        
+        # If batch is full, upload it
+        if len(self.event_batch) >= self.batch_upload_size:
+            return self._upload_batch()
+        
+        return True
+    
+    def _upload_batch(self) -> bool:
+        """Upload batched events to webhook"""
+        if not self.event_batch:
+            return True
+        
+        if not self.webhook_url:
+            self.event_batch.clear()
+            return False
+        
+        batch_payloads = [item['payload'] for item in self.event_batch]
+        event_ids = [item['event_id'] for item in self.event_batch]
         
         # Prepare headers
         headers = {
@@ -185,47 +211,65 @@ class HikvisionBridge:
         if self.webhook_secret:
             headers['Authorization'] = f'Bearer {self.webhook_secret}'
         
+        # Use batch endpoint
+        batch_url = self.webhook_url.rstrip('/') + '/batch'
+        
         try:
+            self.logger.info(f"📤 Uploading batch of {len(batch_payloads)} events...")
+            
             response = requests.post(
-                self.webhook_url,
-                json=payload,
-                timeout=10,
+                batch_url,
+                json={'events': batch_payloads},
+                timeout=30,
                 headers=headers
             )
             
             if response.status_code == 200:
-                self.logger.info(f"✅ Event #{event_id} synced successfully")
-                if self.db:
-                    self.db.update_sync_status(
-                        event_id, 
-                        'synced', 
-                        response=response.text[:500] if response.text else 'OK'
-                    )
+                result = response.json()
+                success_count = result.get('success_count', 0)
+                duplicate_count = result.get('duplicate_count', 0)
+                failed_count = result.get('failed_count', 0)
+                
+                self.logger.info(
+                    f"✅ Batch uploaded: {success_count} saved, "
+                    f"{duplicate_count} duplicates, {failed_count} failed"
+                )
+                
+                # Update sync status for successful events
+                if self.db and success_count > 0:
+                    for event_id in event_ids:
+                        self.db.update_sync_status(event_id, 'synced', response='Batch uploaded')
+                
+                # Clear batch
+                self.event_batch.clear()
                 return True
             else:
                 error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
-                self.logger.warning(f"❌ Event #{event_id} sync failed: {error_msg}")
+                self.logger.warning(f"❌ Batch upload failed: {error_msg}")
+                
+                # Mark events as failed
                 if self.db:
-                    self.db.update_sync_status(event_id, 'failed', error=error_msg)
+                    for event_id in event_ids:
+                        self.db.update_sync_status(event_id, 'failed', error=error_msg)
+                
+                # Clear batch to avoid infinite retry
+                self.event_batch.clear()
                 return False
                 
         except requests.exceptions.Timeout:
             error_msg = "Request timeout"
-            self.logger.error(f"❌ Event #{event_id} sync timeout")
-            if self.db:
-                self.db.update_sync_status(event_id, 'failed', error=error_msg)
+            self.logger.error(f"❌ Batch upload timeout")
+            self.event_batch.clear()
             return False
         except requests.exceptions.ConnectionError as e:
             error_msg = f"Connection error: {str(e)[:100]}"
-            self.logger.error(f"❌ Event #{event_id} sync connection error")
-            if self.db:
-                self.db.update_sync_status(event_id, 'failed', error=error_msg)
+            self.logger.error(f"❌ Batch upload connection error")
+            self.event_batch.clear()
             return False
         except Exception as e:
             error_msg = f"Unexpected error: {str(e)[:100]}"
-            self.logger.error(f"❌ Event #{event_id} sync error: {e}")
-            if self.db:
-                self.db.update_sync_status(event_id, 'failed', error=error_msg)
+            self.logger.error(f"❌ Batch upload error: {e}")
+            self.event_batch.clear()
             return False
     
     def _poll_events(self) -> list:
@@ -469,6 +513,11 @@ class HikvisionBridge:
         """Gracefully stop the bridge"""
         self.logger.info("Stopping bridge...")
         self.running = False
+        
+        # Upload any remaining events in batch
+        if self.event_batch:
+            self.logger.info(f"Uploading remaining {len(self.event_batch)} events...")
+            self._upload_batch()
 
 
 def signal_handler(signum, frame):

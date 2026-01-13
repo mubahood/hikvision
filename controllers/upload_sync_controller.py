@@ -53,11 +53,19 @@ class UploadSyncController:
             if config['api_key']:
                 headers['X-API-Key'] = config['api_key']
             
+            # Send properly formatted test payload
             test_payload = {
-                'event_id': 0,
-                'event_type': 'connection_test',
-                'message': 'Webhook connectivity test',
-                'timestamp': datetime.now().isoformat()
+                'event_serial': f'TEST-{datetime.now().strftime("%Y%m%d%H%M%S")}',
+                'employee_no': '00000',
+                'employee_name': 'Webhook Test',
+                'event_time': datetime.now().isoformat(),
+                'device_name': 'Test Device',
+                'device_ip': '0.0.0.0',
+                'verification_method': 'test',
+                'raw_data': {
+                    'test': True,
+                    'message': 'Webhook connectivity test'
+                }
             }
             
             response = requests.post(
@@ -203,20 +211,22 @@ class UploadSyncController:
                 conn.close()
                 return {'success': False, 'message': 'Event not found'}
             
-            # Prepare payload
+            # Prepare payload matching Laravel endpoint format
             payload = {
-                'event_id': event['id'],
+                'event_serial': event.get('serial_no'),
+                'employee_no': str(event.get('employee_no')) if event.get('employee_no') else None,
+                'employee_name': event.get('name'),
+                'event_time': str(event.get('occur_time')),
+                'door_name': event.get('door_no'),
+                'verification_method': event.get('verify_mode'),
+                'device_name': event.get('device_id'),
                 'device_ip': event.get('device_ip'),
-                'device_id': event.get('device_id'),
-                'event_type': event.get('event_type'),
-                'occur_time': str(event.get('occur_time')),
-                'employee_no': event.get('employee_no'),
-                'name': event.get('name'),
-                'door_no': event.get('door_no'),
-                'verify_mode': event.get('verify_mode'),
-                'attendance_status': event.get('attendance_status'),
-                'card_no': event.get('card_no'),
-                'serial_no': event.get('serial_no')
+                'raw_data': {
+                    'event_id': event['id'],
+                    'event_type': event.get('event_type'),
+                    'attendance_status': event.get('attendance_status'),
+                    'card_no': event.get('card_no')
+                }
             }
             
             headers = {
@@ -357,20 +367,22 @@ class UploadSyncController:
             
             for i, event in enumerate(events):
                 try:
-                    # Prepare payload
+                    # Prepare payload matching Laravel endpoint format
                     payload = {
-                        'event_id': event['id'],
+                        'event_serial': event.get('serial_no'),
+                        'employee_no': str(event.get('employee_no')) if event.get('employee_no') else None,
+                        'employee_name': event.get('name'),
+                        'event_time': str(event.get('occur_time')),
+                        'door_name': event.get('door_no'),
+                        'verification_method': event.get('verify_mode'),
+                        'device_name': event.get('device_id'),
                         'device_ip': event.get('device_ip'),
-                        'device_id': event.get('device_id'),
-                        'event_type': event.get('event_type'),
-                        'occur_time': str(event.get('occur_time')),
-                        'employee_no': event.get('employee_no'),
-                        'name': event.get('name'),
-                        'door_no': event.get('door_no'),
-                        'verify_mode': event.get('verify_mode'),
-                        'attendance_status': event.get('attendance_status'),
-                        'card_no': event.get('card_no'),
-                        'serial_no': event.get('serial_no')
+                        'raw_data': {
+                            'event_id': event['id'],
+                            'event_type': event.get('event_type'),
+                            'attendance_status': event.get('attendance_status'),
+                            'card_no': event.get('card_no')
+                        }
                     }
                     
                     response = requests.post(
