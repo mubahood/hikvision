@@ -150,44 +150,135 @@ class HikvisionBridge:
             self.webhook_secret = os.getenv('WEBHOOK_SECRET')
     
     def _sync_event_immediately(self, event_id: int, event_data: Dict[str, Any]) -> bool:
-        """Add event to batch queue for upload"""
+        """Upload single event immediately to webhook"""
         if not self.webhook_url:
             self.logger.debug("No webhook URL configured, skipping auto-sync")
             return False
         
-        # Convert occur_time to string if it's a datetime object
-        occur_time = event_data.get('occur_time')
-        if occur_time and hasattr(occur_time, 'isoformat'):
-            occur_time = occur_time.isoformat()
-        elif occur_time:
-            occur_time = str(occur_time)
-        
-        # Prepare payload
-        payload = {
-            'event_serial': event_data.get('serial_no'),  # Updated field name
-            'employee_no': str(event_data.get('employee_no')) if event_data.get('employee_no') else None,
-            'employee_name': event_data.get('name'),
-            'event_time': occur_time,
-            'door_name': event_data.get('door_no'),
-            'major_event_type': event_data.get('major_event_type'),
-            'minor_event_type': event_data.get('sub_event_type'),
-            'verification_method': event_data.get('verify_mode'),
-            'device_name': event_data.get('device_id'),
-            'device_ip': event_data.get('device_ip'),
-            'raw_data': event_data.get('raw_json', {}),
-        }
-        
-        # Add to batch
-        self.event_batch.append({
-            'event_id': event_id,
-            'payload': payload
-        })
-        
-        # If batch is full, upload it
-        if len(self.event_batch) >= self.batch_upload_size:
-            return self._upload_batch()
-        
-        return True
+        try:
+            # Convert occur_time to string if it's a datetime object
+            occur_time = event_data.get('occur_time')
+            if occur_time and hasattr(occur_time, 'isoformat'):
+                occur_time = occur_time.isoformat()
+            elif occur_time:
+                occur_time = str(occur_time)
+            
+            # Prepare comprehensive payload with ALL fields
+            payload = {
+                # Core identification
+                'serial_no': event_data.get('serial_no'),
+                'event_serial': event_data.get('serial_no'),  # Alias for compatibility
+                
+                # Employee information
+                'employee_no': str(event_data.get('employee_no')) if event_data.get('employee_no') else None,
+                'name': event_data.get('name'),
+                'employee_name': event_data.get('name'),  # Alias
+                
+                # Event timing
+                'occur_time': occur_time,
+                'event_time': occur_time,  # Alias
+                
+                # Event classification
+                'event_type': event_data.get('event_type'),
+                'event_state': event_data.get('event_state'),
+                'major': event_data.get('major_event_type'),
+                'major_event_type': event_data.get('major_event_type'),
+                'minor': event_data.get('sub_event_type'),
+                'minor_event_type': event_data.get('sub_event_type'),
+                'sub_event_type': event_data.get('sub_event_type'),
+                
+                # Location and device
+                'device_ip': event_data.get('device_ip'),
+                'device_id': event_data.get('device_id'),
+                'device_name': event_data.get('device_name'),
+                'door_no': event_data.get('door_no'),
+                'doorNo': event_data.get('door_no'),  # Alias
+                'channel_id': event_data.get('channel_id'),
+                
+                # Verification
+                'verify_mode': event_data.get('verify_mode'),
+                'currentVerifyMode': event_data.get('verify_mode'),  # Alias
+                'verify_no': event_data.get('verify_no'),
+                
+                # Card information
+                'card_no': event_data.get('card_no'),
+                'card_type': str(event_data.get('card_type')) if event_data.get('card_type') else None,
+                'cardType': event_data.get('card_type'),
+                'card_reader_kind': event_data.get('card_reader_kind'),
+                
+                # Health and safety
+                'mask': event_data.get('mask'),
+                'helmet': event_data.get('helmet'),
+                'attendance_status': event_data.get('attendance_status'),
+                
+                # Network
+                'mac_address': event_data.get('mac_address'),
+                'protocol': event_data.get('protocol'),
+                'port_no': event_data.get('port_no'),
+                
+                # Raw data - send as string if it's JSON string
+                'raw_json': event_data.get('raw_json'),  # Keep as string for proper parsing
+                'raw_data': event_data,  # Send complete event data
+            }
+            
+            # Remove None values to reduce payload size
+            payload = {k: v for k, v in payload.items() if v is not None}
+            
+            # Prepare headers
+            headers = {
+                'Content-Type': 'application/json',
+                'User-Agent': 'HikvisionBridge/1.0'
+            }
+            
+            if self.webhook_api_key:
+                headers['X-API-Key'] = self.webhook_api_key
+            
+            # Upload immediately as single event in array format
+            self.logger.info(f"⚡ Uploading event immediately: {event_data.get('serial_no')}")
+            
+            response = requests.post(
+                self.webhook_url,
+                json={'events': [payload]},  # Wrap in array
+                headers=headers,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                self.logger.info(f"✅ Event uploaded successfully")
+                
+                # Update sync status
+                if self.db:
+                    self.db.update_sync_status(event_id, 'synced', response='Uploaded immediately')
+                
+                return True
+            else:
+                error_msg = f"HTTP {response.status_code}"
+                self.logger.warning(f"❌ Upload failed: {error_msg}")
+                
+                # Mark as failed
+                if self.db:
+                    self.db.update_sync_status(event_id, 'failed', response=error_msg)
+                
+                return False
+                
+        except requests.exceptions.Timeout:
+            self.logger.error("⏱️ Upload timeout")
+            if self.db:
+                self.db.update_sync_status(event_id, 'failed', response='Timeout')
+            return False
+            
+        except requests.exceptions.ConnectionError as e:
+            self.logger.error(f"🔌 Connection error: {e}")
+            if self.db:
+                self.db.update_sync_status(event_id, 'failed', response=f'Connection error: {str(e)[:100]}')
+            return False
+            
+        except Exception as e:
+            self.logger.error(f"💥 Unexpected error: {e}")
+            if self.db:
+                self.db.update_sync_status(event_id, 'failed', response=f'Error: {str(e)[:100]}')
+            return False
     
     def _upload_batch(self) -> bool:
         """Upload batched events to webhook"""
@@ -206,19 +297,19 @@ class HikvisionBridge:
             'Content-Type': 'application/json',
             'User-Agent': 'HikvisionBridge/1.0'
         }
+        
+        # Use X-API-Key for authentication
         if self.webhook_api_key:
             headers['X-API-Key'] = self.webhook_api_key
-        if self.webhook_secret:
-            headers['Authorization'] = f'Bearer {self.webhook_secret}'
         
-        # Use batch endpoint
-        batch_url = self.webhook_url.rstrip('/') + '/batch'
+        # Use the webhook_url directly (should already point to /webhook/events)
+        webhook_url = self.webhook_url.rstrip('/')
         
         try:
             self.logger.info(f"📤 Uploading batch of {len(batch_payloads)} events...")
             
             response = requests.post(
-                batch_url,
+                webhook_url,
                 json={'events': batch_payloads},
                 timeout=30,
                 headers=headers

@@ -2132,14 +2132,10 @@ elif current_page == "upload_sync":
     
     # === HEADER: Webhook Status + Stats ===
     if webhook_config['configured']:
-        # Quick test webhook in background
-        webhook_status = upload_sync_ctrl.test_webhook()
-        if webhook_status['success']:
-            badge_class = "webhook-ok"
-            badge_text = "WEBHOOK OK"
-        else:
-            badge_class = "webhook-fail"
-            badge_text = "WEBHOOK ERROR"
+        # Only test webhook when explicitly requested, not on every page load
+        badge_class = "webhook-ok"
+        badge_text = "CONFIGURED"
+        webhook_status = {'success': True, 'message': 'Click Test Webhook to verify'}
     else:
         badge_class = "webhook-warn"
         badge_text = "NOT CONFIGURED"
@@ -2176,6 +2172,7 @@ elif current_page == "upload_sync":
         if st.button(f"Sync All ({total_to_sync})", disabled=sync_disabled, use_container_width=True, key="btn_sync_all"):
             st.session_state.upload_sync_running = True
             st.session_state.upload_sync_result = None
+            st.query_params["page"] = "upload_sync"
             st.rerun()
     
     with c2:
@@ -2186,16 +2183,19 @@ elif current_page == "upload_sync":
                     st.toast(f"Webhook OK! ({result.get('response_time', 0):.2f}s)")
                 else:
                     st.toast(f"Failed: {result['message']}")
+            st.query_params["page"] = "upload_sync"
             st.rerun()
     
     with c3:
         if st.button("Reset Failed", disabled=failed_count == 0, use_container_width=True, key="btn_reset_failed"):
             result = upload_sync_ctrl.reset_failed_events()
             st.toast(result['message'])
+            st.query_params["page"] = "upload_sync"
             st.rerun()
     
     with c4:
         if st.button("Refresh", use_container_width=True, key="btn_refresh_upload"):
+            st.query_params["page"] = "upload_sync"
             st.rerun()
     
     with c5:
@@ -2222,6 +2222,7 @@ elif current_page == "upload_sync":
         st.session_state.upload_sync_result = result
         st.session_state.upload_sync_running = False
         st.markdown('</div>', unsafe_allow_html=True)
+        st.query_params["page"] = "upload_sync"
         st.rerun()
     
     # === DISPLAY SYNC RESULT ===
@@ -2252,6 +2253,7 @@ elif current_page == "upload_sync":
         
         if st.button("Clear Result", key="clear_upload_result"):
             st.session_state.upload_sync_result = None
+            st.query_params["page"] = "upload_sync"
             st.rerun()
     
     # === MAIN CONTENT: Two columns ===

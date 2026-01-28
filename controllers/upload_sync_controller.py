@@ -53,8 +53,8 @@ class UploadSyncController:
             if config['api_key']:
                 headers['X-API-Key'] = config['api_key']
             
-            # Send properly formatted test payload
-            test_payload = {
+            # Send properly formatted test payload as batch
+            test_event = {
                 'event_serial': f'TEST-{datetime.now().strftime("%Y%m%d%H%M%S")}',
                 'employee_no': '00000',
                 'employee_name': 'Webhook Test',
@@ -68,8 +68,14 @@ class UploadSyncController:
                 }
             }
             
+            # Wrap in events array for batch endpoint
+            test_payload = {'events': [test_event]}
+            
+            # Use the webhook URL as configured (should already include /batch if needed)
+            webhook_url = config['webhook_url'].rstrip('/')
+            
             response = requests.post(
-                config['webhook_url'],
+                webhook_url,
                 json=test_payload,
                 headers=headers,
                 timeout=self.timeout
@@ -236,9 +242,12 @@ class UploadSyncController:
             if config['api_key']:
                 headers['X-API-Key'] = config['api_key']
             
+            # Wrap in events array for batch endpoint
+            batch_payload = {'events': [payload]}
+            
             response = requests.post(
                 config['webhook_url'],
-                json=payload,
+                json=batch_payload,
                 headers=headers,
                 timeout=self.timeout
             )
@@ -385,23 +394,54 @@ class UploadSyncController:
                         }
                     }
                     
+                    # Wrap in events array for batch endpoint
+                    batch_payload = {'events': [payload]}
+                    
                     response = requests.post(
                         config['webhook_url'],
-                        json=payload,
+                        json=batch_payload,
                         headers=headers,
                         timeout=self.timeout
                     )
                     
                     if response.status_code == 200:
-                        cursor.execute("""
-                            UPDATE events 
-                            SET sync_status = 'synced', 
-                                synced_at = NOW(),
-                                sync_attempts = sync_attempts + 1,
-                                sync_error = NULL
-                            WHERE id = %s
-                        """, (event['id'],))
-                        result['synced'] += 1
+                        # Parse response to check if it was processed or duplicate
+                        try:
+                            resp_data = response.json()
+                            # Success if processed > 0 OR duplicates > 0 (already synced before)
+                            if resp_data.get('stats', {}).get('processed', 0) > 0 or resp_data.get('stats', {}).get('duplicates', 0) > 0:
+                                cursor.execute("""
+                                    UPDATE events 
+                                    SET sync_status = 'synced', 
+                                        synced_at = NOW(),
+                                        sync_attempts = sync_attempts + 1,
+                                        sync_error = NULL
+                                    WHERE id = %s
+                                """, (event['id'],))
+                                result['synced'] += 1
+                            else:
+                                # Had errors in processing
+                                error_msg = f"Processing errors: {resp_data.get('errors', 'Unknown')}"
+                                cursor.execute("""
+                                    UPDATE events 
+                                    SET sync_status = 'failed',
+                                        sync_attempts = sync_attempts + 1,
+                                        sync_error = %s
+                                    WHERE id = %s
+                                """, (error_msg[:500], event['id']))
+                                result['failed'] += 1
+                                result['errors'].append({'event_id': event['id'], 'error': error_msg})
+                        except Exception as parse_err:
+                            # If can't parse, just mark as synced since status was 200
+                            cursor.execute("""
+                                UPDATE events 
+                                SET sync_status = 'synced', 
+                                    synced_at = NOW(),
+                                    sync_attempts = sync_attempts + 1,
+                                    sync_error = NULL
+                                WHERE id = %s
+                            """, (event['id'],))
+                            result['synced'] += 1
                     else:
                         error_msg = f"HTTP {response.status_code}"
                         cursor.execute("""
