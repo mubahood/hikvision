@@ -176,19 +176,26 @@ class EventController:
         if not event_data:
             return {'success': False, 'message': f'Event {event_id} not found'}
         
-        # Prepare webhook payload
+        # Prepare webhook payload in the same format as batch sync
         payload = {
-            'event_id': event_data['id'],
+            'event_serial': event_data.get('serial_no'),
+            'employee_no': str(event_data.get('employee_no')) if event_data.get('employee_no') else None,
+            'employee_name': event_data.get('name'),
+            'event_time': str(event_data.get('occur_time')),
+            'door_name': event_data.get('door_no'),
+            'verification_method': event_data.get('verify_mode'),
+            'device_name': event_data.get('device_id'),
             'device_ip': event_data.get('device_ip'),
-            'device_id': event_data.get('device_id'),
-            'event_type': event_data.get('event_type'),
-            'occur_time': str(event_data.get('occur_time')),
-            'employee_no': event_data.get('employee_no'),
-            'name': event_data.get('name'),
-            'door_no': event_data.get('door_no'),
-            'verify_mode': event_data.get('verify_mode'),
-            'attendance_status': event_data.get('attendance_status'),
+            'raw_data': {
+                'event_id': event_data['id'],
+                'event_type': event_data.get('event_type'),
+                'attendance_status': event_data.get('attendance_status'),
+                'card_no': event_data.get('card_no')
+            }
         }
+        
+        # Wrap in events array for batch endpoint (like working batch sync does)
+        batch_payload = {'events': [payload]}
         
         # Prepare headers
         headers = {
@@ -201,23 +208,45 @@ class EventController:
         try:
             response = requests.post(
                 webhook_url,
-                json=payload,
+                json=batch_payload,  # Send as batch format like working methods
                 timeout=10,
                 headers=headers
             )
             
             if response.status_code == 200:
-                # Update sync status
-                self.db.update_sync_status(
-                    event_id, 
-                    'synced', 
-                    response=response.text[:500] if response.text else 'OK'
-                )
-                return {
-                    'success': True, 
-                    'message': 'Event synced successfully',
-                    'response': response.text[:200]
-                }
+                # Parse response to check if it was processed (like batch sync does)
+                try:
+                    resp_data = response.json()
+                    # Success if processed > 0 OR duplicates > 0 (already synced before)
+                    if resp_data.get('stats', {}).get('processed', 0) > 0 or resp_data.get('stats', {}).get('duplicates', 0) > 0:
+                        # Update sync status
+                        self.db.update_sync_status(
+                            event_id, 
+                            'synced', 
+                            response=response.text[:500] if response.text else 'OK'
+                        )
+                        return {
+                            'success': True, 
+                            'message': 'Event synced successfully',
+                            'response': response.text[:200]
+                        }
+                    else:
+                        # Had errors in processing
+                        error_msg = f"Processing errors: {resp_data.get('errors', 'Unknown')}"
+                        self.db.update_sync_status(event_id, 'failed', error=error_msg[:500])
+                        return {'success': False, 'message': error_msg}
+                except Exception as parse_err:
+                    # If can't parse, just mark as synced since status was 200
+                    self.db.update_sync_status(
+                        event_id, 
+                        'synced', 
+                        response=response.text[:500] if response.text else 'OK'
+                    )
+                    return {
+                        'success': True, 
+                        'message': 'Event synced successfully',
+                        'response': response.text[:200]
+                    }
             else:
                 error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
                 self.db.update_sync_status(event_id, 'failed', error=error_msg)

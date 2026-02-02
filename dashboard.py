@@ -331,30 +331,79 @@ st.markdown("""
         min-height: 2rem !important;
     }
     
-    /* Tables - no rounded corners, compact */
+    /* Enhanced Tables - professional light mode styling */
     [data-testid="stDataFrame"] {
         border: 1px solid #E5E7EB !important;
-        border-radius: 0 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
+        overflow: hidden !important;
+        background-color: #FFFFFF !important;
     }
     
+    /* Table Header Styling */
     [data-testid="stDataFrame"] thead th {
-        background-color: #F9FAFB !important;
-        color: #374151 !important;
-        font-size: 0.75rem !important;
-        font-weight: 600 !important;
-        padding: 0.375rem 0.5rem !important;
-        border-bottom: 1px solid #E5E7EB !important;
+        background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%) !important;
+        color: #1E293B !important;
+        font-size: 0.8125rem !important;
+        font-weight: 700 !important;
+        padding: 0.75rem 1rem !important;
+        border-bottom: 2px solid #CBD5E1 !important;
+        border-right: 1px solid #E2E8F0 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.025em !important;
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 10 !important;
     }
     
+    [data-testid="stDataFrame"] thead th:last-child {
+        border-right: none !important;
+    }
+    
+    /* Table Body Styling */
     [data-testid="stDataFrame"] tbody td {
-        font-size: 0.75rem !important;
-        padding: 0.25rem 0.5rem !important;
-        color: #111827 !important;
-        border-bottom: 1px solid #F3F4F6 !important;
+        font-size: 0.875rem !important;
+        padding: 0.75rem 1rem !important;
+        color: #334155 !important;
+        border-bottom: 1px solid #F1F5F9 !important;
+        border-right: 1px solid #F8FAFC !important;
+        background-color: #FFFFFF !important;
+        transition: all 0.2s ease !important;
     }
     
-    [data-testid="stDataFrame"] tbody tr:hover {
-        background-color: #F9FAFB !important;
+    [data-testid="stDataFrame"] tbody td:last-child {
+        border-right: none !important;
+    }
+    
+    /* Alternating Row Colors */
+    [data-testid="stDataFrame"] tbody tr:nth-child(even) td {
+        background-color: #F8FAFC !important;
+    }
+    
+    /* Enhanced Hover Effects */
+    [data-testid="stDataFrame"] tbody tr:hover td {
+        background-color: #EFF6FF !important;
+        color: #1E40AF !important;
+        border-color: #DBEAFE !important;
+        transform: scale(1.001) !important;
+        box-shadow: inset 0 0 0 1px #DBEAFE !important;
+    }
+    
+    /* Special Column Styling */
+    [data-testid="stDataFrame"] tbody td:first-child {
+        font-weight: 600 !important;
+        color: #A22431 !important;
+    }
+    
+    [data-testid="stDataFrame"] tbody tr:hover td:first-child {
+        color: #7F1D1D !important;
+    }
+    
+    /* Sync Status Column Styling */
+    [data-testid="stDataFrame"] tbody td:last-child {
+        text-align: center !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
     }
     
     /* Expander - compact, light background */
@@ -828,25 +877,70 @@ elif current_page == "events":
     st.markdown("""
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-    .events-header { display:flex; align-items:center; justify-content:space-between; padding:6px 12px; background:#F9FAFB; border:1px solid #E5E7EB; margin-bottom:8px; }
-    .stat-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-    .stat-box { background:#fff; border:1px solid #E5E7EB; padding:3px 10px; min-width:50px; text-align:center; }
-    .stat-val { font-size:12px; font-weight:600; color:#111827; }
+    .events-header { 
+        display:flex; align-items:center; justify-content:space-between; 
+        padding:12px 16px; background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%); 
+        border:1px solid #E2E8F0; border-radius: 8px;
+        margin-bottom:12px; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    }
+    .stat-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    .stat-box { 
+        background:#fff; border:1px solid #E2E8F0; 
+        padding:8px 16px; min-width:70px; text-align:center; 
+        border-radius: 6px; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        transition: all 0.2s ease;
+    }
+    .stat-box:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    .stat-val { font-size:16px; font-weight:700; color:#1E293B; }
     .stat-val.primary { color:#A22431; }
-    .stat-lbl { font-size:8px; color:#6B7280; text-transform:uppercase; }
-    .section-title { font-size:12px; font-weight:600; color:#374151; margin:8px 0 6px 0; display:flex; align-items:center; gap:6px; }
-    .filter-row { background:#FAFAFA; border:1px solid #E5E7EB; padding:8px 12px; margin-bottom:8px; }
-    .event-detail { background:#fff; border:1px solid #E5E7EB; padding:12px; margin:8px 0; }
-    .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    .detail-section { background:#FAFAFA; padding:8px; }
-    .detail-title { font-size:10px; font-weight:600; color:#6B7280; margin-bottom:6px; text-transform:uppercase; }
-    .detail-row { display:flex; justify-content:space-between; padding:2px 0; font-size:10px; border-bottom:1px solid #F3F4F6; }
-    .detail-label { color:#6B7280; }
-    .detail-value { color:#111827; font-weight:500; font-family:monospace; }
-    .sync-badge { display:inline-flex; align-items:center; gap:3px; padding:1px 6px; border-radius:8px; font-size:8px; font-weight:600; }
-    .sync-ok { background:#DCFCE7; color:#166534; }
-    .sync-pending { background:#FEF3C7; color:#92400E; }
-    .sync-fail { background:#FEE2E2; color:#991B1B; }
+    .stat-lbl { font-size:10px; color:#64748B; text-transform:uppercase; letter-spacing: 0.05em; }
+    .section-title { 
+        font-size:14px; font-weight:600; color:#1E293B; 
+        margin:16px 0 8px 0; display:flex; align-items:center; gap:8px; 
+        padding: 8px 0; border-bottom: 1px solid #F1F5F9;
+    }
+    .filter-row { 
+        background: linear-gradient(135deg, #FAFBFC 0%, #F8FAFC 100%); 
+        border:1px solid #E2E8F0; padding:12px 16px; margin-bottom:12px; 
+        border-radius: 8px;
+    }
+    .event-detail { 
+        background:#fff; border:1px solid #E2E8F0; 
+        padding:20px; margin:12px 0; border-radius: 8px;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+    }
+    .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    .detail-section { 
+        background: linear-gradient(135deg, #FAFBFC 0%, #F8FAFC 100%); 
+        padding:16px; border-radius: 6px; border: 1px solid #F1F5F9;
+    }
+    .detail-title { 
+        font-size:12px; font-weight:700; color:#475569; 
+        margin-bottom:12px; text-transform:uppercase; 
+        letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px;
+    }
+    .detail-row { 
+        display:flex; justify-content:space-between; 
+        padding:6px 0; font-size:12px; 
+        border-bottom:1px solid #F8FAFC; 
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { color:#64748B; font-weight: 500; }
+    .detail-value { 
+        color:#1E293B; font-weight:600; font-family:monospace; 
+        background: #F8FAFC; padding: 2px 6px; border-radius: 3px;
+    }
+    .sync-badge { 
+        display:inline-flex; align-items:center; gap:6px; 
+        padding:4px 12px; border-radius:12px; font-size:11px; font-weight:600;
+        text-transform: uppercase; letter-spacing: 0.025em;
+    }
+    .sync-ok { background:#DCFCE7; color:#166534; border: 1px solid #BBF7D0; }
+    .sync-pending { background:#FEF3C7; color:#92400E; border: 1px solid #FDE68A; }
+    .sync-fail { background:#FEE2E2; color:#991B1B; border: 1px solid #FECACA; }
     </style>
     """, unsafe_allow_html=True)
     
@@ -904,42 +998,108 @@ elif current_page == "events":
         csv = df_export.to_csv(index=False)
         st.download_button("Download CSV", csv, f"events_{datetime.now().strftime('%Y%m%d')}.csv", "text/csv", key="download_csv")
     
-    # Status line
-    st.caption(f"Showing {len(events)} of {total_count:,} events")
+    # Enhanced status line with visual styling
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%); 
+                border: 1px solid #CBD5E1; border-radius: 6px; 
+                padding: 8px 16px; margin: 8px 0 16px 0;
+                display: flex; align-items: center; justify-content: space-between;
+                box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
+        <div style="display: flex; align-items: center; gap: 12px; font-size: 13px; color: #475569;">
+            <i class="fa-solid fa-table" style="color: #A22431;"></i>
+            <span style="font-weight: 600;">Showing {len(events):,} of {total_count:,} events</span>
+            <span style="color: #64748B;">•</span>
+            <span>Period: {date_start.strftime('%b %d')} - {date_end.strftime('%b %d, %Y')}</span>
+        </div>
+        <div style="font-size: 11px; color: #64748B;">
+            <i class="fa-solid fa-clock" style="margin-right: 4px;"></i>
+            Last updated: {datetime.now().strftime('%H:%M:%S')}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Events display
     if events:
         df = pd.DataFrame(events)
         
-        # Prepare display dataframe
-        display_cols = ['id', 'occur_time', 'name', 'employee_no', 'door_no', 'verify_mode', 'sync_status']
+        # Prepare enhanced display dataframe with more details
+        display_cols = ['id', 'occur_time', 'name', 'employee_no', 'card_no', 'door_no', 'verify_mode', 'device_ip', 'sync_status']
         display_cols = [c for c in display_cols if c in df.columns]
         display_df = df[display_cols].copy()
         
-        # Format sync status with icons for display
+        # Format sync status with colored icons and text
         if 'sync_status' in display_df.columns:
             display_df['sync_status'] = display_df['sync_status'].apply(
-                lambda x: '✓' if x == 'synced' else '○' if x == 'pending' else '✗'
+                lambda x: '✅ Synced' if x == 'synced' else '⏳ Pending' if x == 'pending' else '❌ Failed'
             )
         
-        # Rename for cleaner headers
-        col_names = {'id': 'ID', 'occur_time': 'Time', 'name': 'Name', 'employee_no': 'Employee', 'door_no': 'Door', 'verify_mode': 'Mode', 'sync_status': 'Sync'}
+        # Format time to be more readable
+        if 'occur_time' in display_df.columns:
+            display_df['occur_time'] = pd.to_datetime(display_df['occur_time']).dt.strftime('%m/%d %H:%M:%S')
+        
+        # Format employee_no and card_no for better display
+        if 'employee_no' in display_df.columns:
+            display_df['employee_no'] = display_df['employee_no'].fillna('-').astype(str)
+        if 'card_no' in display_df.columns:
+            display_df['card_no'] = display_df['card_no'].fillna('-').astype(str)
+        
+        # Rename for cleaner, more descriptive headers
+        col_names = {
+            'id': 'Event ID', 
+            'occur_time': 'Date & Time', 
+            'name': 'Employee Name', 
+            'employee_no': 'Emp. No', 
+            'card_no': 'Card No',
+            'door_no': 'Door', 
+            'verify_mode': 'Access Method', 
+            'device_ip': 'Device IP',
+            'sync_status': 'Sync Status'
+        }
         display_df.rename(columns=col_names, inplace=True)
         
-        # Show table
+        # Show enhanced table with better configuration
         st.dataframe(
             display_df,
             use_container_width=True,
             hide_index=True,
-            height=300,
+            height=450,
             column_config={
-                "ID": st.column_config.NumberColumn(width="small"),
-                "Time": st.column_config.TextColumn(width="medium"),
-                "Name": st.column_config.TextColumn(width="medium"),
-                "Employee": st.column_config.TextColumn(width="small"),
-                "Door": st.column_config.NumberColumn(width="small"),
-                "Mode": st.column_config.TextColumn(width="small"),
-                "Sync": st.column_config.TextColumn(width="small"),
+                "Event ID": st.column_config.NumberColumn(
+                    width="small",
+                    help="Unique event identifier"
+                ),
+                "Date & Time": st.column_config.TextColumn(
+                    width="medium",
+                    help="When the access event occurred"
+                ),
+                "Employee Name": st.column_config.TextColumn(
+                    width="large",
+                    help="Name of the person accessing"
+                ),
+                "Emp. No": st.column_config.TextColumn(
+                    width="small",
+                    help="Employee number/ID"
+                ),
+                "Card No": st.column_config.TextColumn(
+                    width="medium",
+                    help="Access card number used"
+                ),
+                "Door": st.column_config.NumberColumn(
+                    width="small",
+                    help="Door number accessed"
+                ),
+                "Access Method": st.column_config.TextColumn(
+                    width="medium",
+                    help="How access was verified (card, face, etc.)"
+                ),
+                "Device IP": st.column_config.TextColumn(
+                    width="medium",
+                    help="IP address of the access control device"
+                ),
+                "Sync Status": st.column_config.TextColumn(
+                    width="medium",
+                    help="Status of sync with HR system"
+                ),
             }
         )
         

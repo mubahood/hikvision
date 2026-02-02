@@ -149,6 +149,19 @@ class HikvisionBridge:
             self.webhook_api_key = os.getenv('WEBHOOK_API_KEY')
             self.webhook_secret = os.getenv('WEBHOOK_SECRET')
     
+    def _clean_for_json(self, obj):
+        """Clean object for JSON serialization by converting datetime objects"""
+        if hasattr(obj, 'isoformat'):  # datetime object
+            return obj.isoformat()
+        elif hasattr(obj, 'item'):  # numpy types
+            return obj.item()
+        elif isinstance(obj, dict):
+            return {key: self._clean_for_json(value) for key, value in obj.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [self._clean_for_json(item) for item in obj]
+        else:
+            return obj
+
     def _sync_event_immediately(self, event_id: int, event_data: Dict[str, Any]) -> bool:
         """Upload single event immediately to webhook"""
         if not self.webhook_url:
@@ -156,69 +169,76 @@ class HikvisionBridge:
             return False
         
         try:
+            # Clean event_data of any datetime objects for JSON serialization
+            cleaned_event_data = self._clean_for_json(event_data)
+            
             # Convert occur_time to string if it's a datetime object
-            occur_time = event_data.get('occur_time')
-            if occur_time and hasattr(occur_time, 'isoformat'):
-                occur_time = occur_time.isoformat()
-            elif occur_time:
-                occur_time = str(occur_time)
+            occur_time = cleaned_event_data.get('occur_time')
+            if isinstance(occur_time, str) and 'T' not in occur_time:
+                # Handle timestamp strings that aren't ISO format
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(occur_time.replace(' ', 'T'))
+                    occur_time = dt.isoformat()
+                except:
+                    occur_time = str(occur_time)
             
             # Prepare comprehensive payload with ALL fields
             payload = {
                 # Core identification
-                'serial_no': event_data.get('serial_no'),
-                'event_serial': event_data.get('serial_no'),  # Alias for compatibility
+                'serial_no': cleaned_event_data.get('serial_no'),
+                'event_serial': cleaned_event_data.get('serial_no'),  # Alias for compatibility
                 
                 # Employee information
-                'employee_no': str(event_data.get('employee_no')) if event_data.get('employee_no') else None,
-                'name': event_data.get('name'),
-                'employee_name': event_data.get('name'),  # Alias
+                'employee_no': str(cleaned_event_data.get('employee_no')) if cleaned_event_data.get('employee_no') else None,
+                'name': cleaned_event_data.get('name'),
+                'employee_name': cleaned_event_data.get('name'),  # Alias
                 
                 # Event timing
                 'occur_time': occur_time,
                 'event_time': occur_time,  # Alias
                 
                 # Event classification
-                'event_type': event_data.get('event_type'),
-                'event_state': event_data.get('event_state'),
-                'major': event_data.get('major_event_type'),
-                'major_event_type': event_data.get('major_event_type'),
-                'minor': event_data.get('sub_event_type'),
-                'minor_event_type': event_data.get('sub_event_type'),
-                'sub_event_type': event_data.get('sub_event_type'),
+                'event_type': cleaned_event_data.get('event_type'),
+                'event_state': cleaned_event_data.get('event_state'),
+                'major': cleaned_event_data.get('major_event_type'),
+                'major_event_type': cleaned_event_data.get('major_event_type'),
+                'minor': cleaned_event_data.get('sub_event_type'),
+                'minor_event_type': cleaned_event_data.get('sub_event_type'),
+                'sub_event_type': cleaned_event_data.get('sub_event_type'),
                 
                 # Location and device
-                'device_ip': event_data.get('device_ip'),
-                'device_id': event_data.get('device_id'),
-                'device_name': event_data.get('device_name'),
-                'door_no': event_data.get('door_no'),
-                'doorNo': event_data.get('door_no'),  # Alias
-                'channel_id': event_data.get('channel_id'),
+                'device_ip': cleaned_event_data.get('device_ip'),
+                'device_id': cleaned_event_data.get('device_id'),
+                'device_name': cleaned_event_data.get('device_name'),
+                'door_no': cleaned_event_data.get('door_no'),
+                'doorNo': cleaned_event_data.get('door_no'),  # Alias
+                'channel_id': cleaned_event_data.get('channel_id'),
                 
                 # Verification
-                'verify_mode': event_data.get('verify_mode'),
-                'currentVerifyMode': event_data.get('verify_mode'),  # Alias
-                'verify_no': event_data.get('verify_no'),
+                'verify_mode': cleaned_event_data.get('verify_mode'),
+                'currentVerifyMode': cleaned_event_data.get('verify_mode'),  # Alias
+                'verify_no': cleaned_event_data.get('verify_no'),
                 
                 # Card information
-                'card_no': event_data.get('card_no'),
-                'card_type': str(event_data.get('card_type')) if event_data.get('card_type') else None,
-                'cardType': event_data.get('card_type'),
-                'card_reader_kind': event_data.get('card_reader_kind'),
+                'card_no': cleaned_event_data.get('card_no'),
+                'card_type': str(cleaned_event_data.get('card_type')) if cleaned_event_data.get('card_type') else None,
+                'cardType': cleaned_event_data.get('card_type'),
+                'card_reader_kind': cleaned_event_data.get('card_reader_kind'),
                 
                 # Health and safety
-                'mask': event_data.get('mask'),
-                'helmet': event_data.get('helmet'),
-                'attendance_status': event_data.get('attendance_status'),
+                'mask': cleaned_event_data.get('mask'),
+                'helmet': cleaned_event_data.get('helmet'),
+                'attendance_status': cleaned_event_data.get('attendance_status'),
                 
                 # Network
-                'mac_address': event_data.get('mac_address'),
-                'protocol': event_data.get('protocol'),
-                'port_no': event_data.get('port_no'),
+                'mac_address': cleaned_event_data.get('mac_address'),
+                'protocol': cleaned_event_data.get('protocol'),
+                'port_no': cleaned_event_data.get('port_no'),
                 
                 # Raw data - send as string if it's JSON string
-                'raw_json': event_data.get('raw_json'),  # Keep as string for proper parsing
-                'raw_data': event_data,  # Send complete event data
+                'raw_json': cleaned_event_data.get('raw_json'),  # Keep as string for proper parsing
+                'raw_data': cleaned_event_data,  # Send complete cleaned event data
             }
             
             # Remove None values to reduce payload size
