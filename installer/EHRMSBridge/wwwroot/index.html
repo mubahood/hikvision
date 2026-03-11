@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EHRMS Device Bridge Manager</title>
+<style>
+:root {
+  --brand: #790D0B;
+  --brand-dark: #5a0908;
+  --brand-light: #f3e5e5;
+  --brand-50: rgba(121,13,11,0.06);
+  --white: #fff;
+  --bg: #f5f5f7;
+  --dark: #1d1d1f;
+  --gray: #6e6e73;
+  --gray-light: #d2d2d7;
+  --green: #34c759;
+  --red: #ff3b30;
+  --orange: #ff9500;
+  --radius: 12px;
+  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:var(--bg); color:var(--dark); display:flex; min-height:100vh; }
+
+/* Sidebar */
+.sidebar { width:260px; background:var(--dark); color:var(--white); display:flex; flex-direction:column; position:fixed; top:0; left:0; bottom:0; z-index:100; }
+.sidebar-header { padding:28px 24px 20px; border-bottom:1px solid rgba(255,255,255,0.08); }
+.sidebar-header .uni { font-size:13px; font-weight:600; color:var(--brand-light); letter-spacing:0.5px; text-transform:uppercase; }
+.sidebar-header h1 { font-size:18px; font-weight:700; margin-top:4px; }
+.sidebar-header .sub { font-size:12px; color:var(--gray); margin-top:2px; }
+.sidebar-brand { width:100%; height:3px; background:var(--brand); margin-top:12px; border-radius:2px; }
+nav { flex:1; padding:16px 12px; }
+nav a { display:flex; align-items:center; gap:12px; padding:11px 16px; border-radius:10px; color:rgba(255,255,255,0.65); text-decoration:none; font-size:14px; font-weight:500; transition:all 0.2s; margin-bottom:2px; cursor:pointer; }
+nav a:hover { background:rgba(255,255,255,0.08); color:var(--white); }
+nav a.active { background:var(--brand); color:var(--white); }
+nav a svg { width:18px; height:18px; flex-shrink:0; }
+.sidebar-footer { padding:16px 20px; border-top:1px solid rgba(255,255,255,0.08); font-size:11px; color:var(--gray); }
+
+/* Main */
+.main { margin-left:260px; flex:1; padding:32px 40px; min-height:100vh; }
+.page { display:none; }
+.page.active { display:block; }
+.page-title { font-size:26px; font-weight:700; margin-bottom:6px; }
+.page-desc { color:var(--gray); font-size:14px; margin-bottom:28px; }
+
+/* Cards */
+.cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:16px; margin-bottom:28px; }
+.card { background:var(--white); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); }
+.card-label { font-size:12px; color:var(--gray); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
+.card-value { font-size:28px; font-weight:700; margin-top:6px; }
+.card-value.ok { color:var(--green); }
+.card-value.err { color:var(--red); }
+.card-value.warn { color:var(--orange); }
+
+/* Panels */
+.panel { background:var(--white); border-radius:var(--radius); padding:24px; box-shadow:var(--shadow); margin-bottom:20px; }
+.panel-title { font-size:16px; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+.panel-title .dot { width:8px; height:8px; border-radius:50%; }
+.dot.green { background:var(--green); }
+.dot.red { background:var(--red); }
+
+/* Buttons */
+.btn { display:inline-flex; align-items:center; gap:8px; padding:10px 20px; border-radius:10px; font-size:14px; font-weight:600; border:none; cursor:pointer; transition:all 0.2s; }
+.btn-brand { background:var(--brand); color:var(--white); }
+.btn-brand:hover { background:var(--brand-dark); }
+.btn-outline { background:transparent; border:1.5px solid var(--gray-light); color:var(--dark); }
+.btn-outline:hover { border-color:var(--brand); color:var(--brand); }
+.btn-red { background:var(--red); color:var(--white); }
+.btn-red:hover { opacity:0.85; }
+.btn-green { background:var(--green); color:var(--white); }
+.btn-green:hover { opacity:0.85; }
+.btn:disabled { opacity:0.5; cursor:not-allowed; }
+.btn-group { display:flex; gap:10px; flex-wrap:wrap; }
+
+/* Forms */
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.form-group { display:flex; flex-direction:column; gap:5px; }
+.form-group.full { grid-column:1/-1; }
+.form-group label { font-size:12px; font-weight:600; color:var(--gray); text-transform:uppercase; letter-spacing:0.3px; }
+.form-group input, .form-group select { padding:10px 14px; border:1.5px solid var(--gray-light); border-radius:8px; font-size:14px; font-family:inherit; outline:none; transition:border-color 0.2s; }
+.form-group input:focus { border-color:var(--brand); }
+
+/* Stepper */
+.stepper { display:flex; gap:0; margin-bottom:32px; }
+.step { flex:1; text-align:center; position:relative; padding:16px 8px 12px; }
+.step::after { content:''; position:absolute; top:24px; left:50%; width:100%; height:2px; background:var(--gray-light); z-index:0; }
+.step:last-child::after { display:none; }
+.step-num { width:32px; height:32px; border-radius:50%; background:var(--gray-light); color:var(--gray); display:inline-flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; position:relative; z-index:1; transition:all 0.3s; }
+.step.done .step-num { background:var(--green); color:var(--white); }
+.step.active .step-num { background:var(--brand); color:var(--white); box-shadow:0 0 0 4px var(--brand-light); }
+.step.done::after { background:var(--green); }
+.step-label { font-size:11px; color:var(--gray); margin-top:6px; font-weight:600; }
+.step.active .step-label { color:var(--brand); }
+.step.done .step-label { color:var(--green); }
+
+/* Log viewer */
+.log-viewer { background:#1e1e1e; color:#d4d4d4; border-radius:10px; padding:16px; font-family:'SF Mono',Consolas,monospace; font-size:12px; line-height:1.65; max-height:400px; overflow-y:auto; white-space:pre-wrap; word-break:break-all; }
+.log-viewer .log-info { color:#569cd6; }
+.log-viewer .log-warn { color:#dcdcaa; }
+.log-viewer .log-err { color:#f44747; }
+.log-viewer .log-ok { color:#6a9955; }
+
+/* Check list */
+.check-list { list-style:none; }
+.check-item { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--brand-50); }
+.check-item:last-child { border-bottom:none; }
+.check-icon { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+.check-icon.ok { background:#e8f9ee; color:var(--green); }
+.check-icon.fail { background:#ffecea; color:var(--red); }
+.check-name { font-weight:600; font-size:14px; }
+.check-detail { font-size:12px; color:var(--gray); }
+
+/* Toast */
+.toast-container { position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:8px; }
+.toast { padding:14px 20px; border-radius:10px; color:var(--white); font-size:13px; font-weight:600; box-shadow:0 4px 20px rgba(0,0,0,0.15); animation:slideIn 0.3s ease; max-width:360px; }
+.toast.success { background:var(--green); }
+.toast.error { background:var(--red); }
+.toast.info { background:var(--brand); }
+@keyframes slideIn { from{transform:translateX(100px);opacity:0} to{transform:translateX(0);opacity:1} }
+
+/* Docs */
+.doc-section { margin-bottom:20px; }
+.doc-section h3 { color:var(--brand); font-size:15px; margin-bottom:8px; }
+.doc-section p, .doc-section li { font-size:13px; line-height:1.7; color:var(--dark); }
+.doc-section ul { padding-left:20px; }
+.doc-section code { background:var(--brand-50); padding:2px 6px; border-radius:4px; font-size:12px; color:var(--brand-dark); }
+
+/* Spinner */
+.spinner { display:inline-block; width:16px; height:16px; border:2px solid rgba(255,255,255,0.3); border-top-color:var(--white); border-radius:50%; animation:spin 0.6s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* Responsive */
+@media(max-width:900px) {
+  .sidebar { width:60px; }
+  .sidebar-header .uni, .sidebar-header h1, .sidebar-header .sub, .sidebar-footer, nav a span { display:none; }
+  nav a { justify-content:center; padding:12px; }
+  .main { margin-left:60px; padding:20px; }
+  .form-grid { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="uni">Mountains of the Moon University</div>
+    <h1>EHRMS Portal</h1>
+    <div class="sub">Device Bridge Manager</div>
+    <div class="sidebar-brand"></div>
+  </div>
+  <nav>
+    <a data-page="home" class="active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>Home</span>
+    </a>
+    <a data-page="setup">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      <span>Setup Wizard</span>
+    </a>
+    <a data-page="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Settings</span>
+    </a>
+    <a data-page="run">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      <span>Run Services</span>
+    </a>
+    <a data-page="diagnostics">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      <span>Diagnostics</span>
+    </a>
+    <a data-page="logs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      <span>Logs</span>
+    </a>
+    <a data-page="docs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <span>User Guide</span>
+    </a>
+  </nav>
+  <div class="sidebar-footer">EHRMS Bridge v1.0 &bull; &copy; 2026 MMU</div>
+</aside>
+
+<!-- Main Content -->
+<main class="main">
+
+  <!-- ═══ HOME ═══ -->
+  <div id="page-home" class="page active">
+    <h2 class="page-title">Dashboard</h2>
+    <p class="page-desc">System overview and quick actions</p>
+    <div class="cards" id="home-cards"></div>
+    <div class="btn-group" style="margin-bottom:28px;">
+      <button class="btn btn-brand" onclick="nav('setup')">Run Setup Wizard</button>
+      <button class="btn btn-outline" onclick="nav('run')">Manage Services</button>
+      <button class="btn btn-outline" onclick="nav('diagnostics')">Run Diagnostics</button>
+    </div>
+    <div class="panel">
+      <div class="panel-title">System Information</div>
+      <div id="home-info" style="font-size:13px;color:var(--gray);line-height:2;"></div>
+    </div>
+  </div>
+
+  <!-- ═══ SETUP WIZARD ═══ -->
+  <div id="page-setup" class="page">
+    <h2 class="page-title">Setup Wizard</h2>
+    <p class="page-desc">Step-by-step installation and configuration</p>
+    <div class="stepper" id="stepper">
+      <div class="step active" data-step="1"><span class="step-num">1</span><div class="step-label">Python</div></div>
+      <div class="step" data-step="2"><span class="step-num">2</span><div class="step-label">Environment</div></div>
+      <div class="step" data-step="3"><span class="step-num">3</span><div class="step-label">Dependencies</div></div>
+      <div class="step" data-step="4"><span class="step-num">4</span><div class="step-label">Configure</div></div>
+      <div class="step" data-step="5"><span class="step-num">5</span><div class="step-label">Database</div></div>
+      <div class="step" data-step="6"><span class="step-num">6</span><div class="step-label">Device</div></div>
+    </div>
+    <div class="panel" id="setup-panel">
+      <div id="setup-content"></div>
+      <div style="margin-top:20px;display:flex;gap:10px;" id="setup-actions"></div>
+    </div>
+  </div>
+
+  <!-- ═══ SETTINGS ═══ -->
+  <div id="page-settings" class="page">
+    <h2 class="page-title">Settings</h2>
+    <p class="page-desc">Configure environment variables (.env file)</p>
+    <div class="panel">
+      <div class="panel-title">Device Configuration</div>
+      <div class="form-grid" id="settings-device"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Database Configuration</div>
+      <div class="form-grid" id="settings-db"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Webhook Configuration</div>
+      <div class="form-grid" id="settings-webhook"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Bridge Settings</div>
+      <div class="form-grid" id="settings-bridge"></div>
+    </div>
+    <div style="margin-top:12px;">
+      <button class="btn btn-brand" id="save-settings-btn" onclick="saveSettings()">Save Configuration</button>
+    </div>
+  </div>
+
+  <!-- ═══ RUN SERVICES ═══ -->
+  <div id="page-run" class="page">
+    <h2 class="page-title">Run Services</h2>
+    <p class="page-desc">Start, stop, and monitor bridge and dashboard</p>
+    <div class="cards">
+      <div class="card" id="bridge-card">
+        <div class="card-label">Bridge Service</div>
+        <div class="card-value" id="bridge-status">Checking...</div>
+        <div style="margin-top:16px;" class="btn-group">
+          <button class="btn btn-green" id="bridge-start-btn" onclick="serviceAction('bridge','start')">Start</button>
+          <button class="btn btn-red" id="bridge-stop-btn" onclick="serviceAction('bridge','stop')">Stop</button>
+        </div>
+      </div>
+      <div class="card" id="dashboard-card">
+        <div class="card-label">Streamlit Dashboard</div>
+        <div class="card-value" id="dashboard-status">Checking...</div>
+        <div style="margin-top:16px;" class="btn-group">
+          <button class="btn btn-green" id="dash-start-btn" onclick="serviceAction('dashboard','start')">Start</button>
+          <button class="btn btn-red" id="dash-stop-btn" onclick="serviceAction('dashboard','stop')">Stop</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Quick Actions</div>
+      <div class="btn-group">
+        <button class="btn btn-brand" onclick="serviceAction('bridge','start');serviceAction('dashboard','start');">Start All</button>
+        <button class="btn btn-red" onclick="serviceAction('bridge','stop');serviceAction('dashboard','stop');">Stop All</button>
+        <button class="btn btn-outline" onclick="window.open('http://localhost:8502','_blank')">Open Dashboard</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ DIAGNOSTICS ═══ -->
+  <div id="page-diagnostics" class="page">
+    <h2 class="page-title">Diagnostics</h2>
+    <p class="page-desc">System health checks and troubleshooting</p>
+    <div class="panel">
+      <div class="panel-title">System Health</div>
+      <button class="btn btn-brand" onclick="runDiagnostics()" style="margin-bottom:16px;">Run All Checks</button>
+      <ul class="check-list" id="diag-list"></ul>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Connection Tests</div>
+      <div class="btn-group">
+        <button class="btn btn-outline" onclick="testConnection('db')">Test Database</button>
+        <button class="btn btn-outline" onclick="testConnection('device')">Test Device</button>
+      </div>
+      <div id="conn-result" style="margin-top:12px;font-size:13px;color:var(--gray);"></div>
+    </div>
+  </div>
+
+  <!-- ═══ LOGS ═══ -->
+  <div id="page-logs" class="page">
+    <h2 class="page-title">Logs</h2>
+    <p class="page-desc">View service log output</p>
+    <div class="btn-group" style="margin-bottom:16px;">
+      <button class="btn btn-brand" id="log-bridge-btn" onclick="loadLogs('bridge')">Bridge Logs</button>
+      <button class="btn btn-outline" id="log-dash-btn" onclick="loadLogs('dashboard')">Dashboard Logs</button>
+      <button class="btn btn-outline" onclick="loadLogs(currentLogService)">Refresh</button>
+    </div>
+    <div class="log-viewer" id="log-output">Select a log to view...</div>
+  </div>
+
+  <!-- ═══ DOCS / USER GUIDE ═══ -->
+  <div id="page-docs" class="page">
+    <h2 class="page-title">User Guide</h2>
+    <p class="page-desc">Quick reference for using the EHRMS Device Bridge</p>
+    <div class="panel">
+      <div class="doc-section"><h3>What is this?</h3><p>The EHRMS Device Bridge connects Hikvision DS-K1T680 face recognition terminals to the EHRMS backend. It polls the device for access control events (face scans, card swipes), stores them in MySQL, and syncs them to your server via webhook.</p></div>
+      <div class="doc-section"><h3>Getting Started</h3>
+        <ul>
+          <li>Use the <strong>Setup Wizard</strong> to install and configure everything step by step.</li>
+          <li>Go to <strong>Settings</strong> to update your device IP, database credentials, and webhook URL.</li>
+          <li>Use <strong>Run Services</strong> to start/stop the bridge and the Streamlit dashboard.</li>
+        </ul>
+      </div>
+      <div class="doc-section"><h3>Architecture</h3><p>The system has three components:</p>
+        <ul>
+          <li><strong>Bridge</strong> (<code>hikvision_bridge.py</code>) — Polls the Hikvision device every 2 seconds via ISAPI, saves events to MySQL + JSON, and POSTs them to your webhook.</li>
+          <li><strong>Dashboard</strong> (<code>dashboard.py</code>) — A Streamlit web UI on port 8502 for monitoring events, syncing data, and managing the bridge.</li>
+          <li><strong>Database</strong> — MySQL stores all events with sync status tracking and retry support.</li>
+        </ul>
+      </div>
+      <div class="doc-section"><h3>Configuration Reference</h3>
+        <ul>
+          <li><code>DEVICE_IP</code> — IP address of the Hikvision terminal</li>
+          <li><code>DEVICE_USER</code> / <code>DEVICE_PASS</code> — Device admin credentials (Digest Auth)</li>
+          <li><code>DB_HOST</code>, <code>DB_PORT</code>, <code>DB_USER</code>, <code>DB_PASS</code>, <code>DB_NAME</code> — MySQL connection</li>
+          <li><code>WEBHOOK_URL</code> — Your EHRMS backend endpoint (events POSTed here)</li>
+          <li><code>WEBHOOK_API_KEY</code> — API key sent as <code>X-API-Key</code> header</li>
+          <li><code>POLL_INTERVAL</code> — Seconds between device polls (default: 2)</li>
+        </ul>
+      </div>
+      <div class="doc-section"><h3>Troubleshooting</h3>
+        <ul>
+          <li><strong>Bridge won't start:</strong> Check the <strong>Diagnostics</strong> page. Verify .env exists and Python + dependencies are installed.</li>
+          <li><strong>No events appearing:</strong> Test device connection in Diagnostics. Ensure the device IP is correct and reachable.</li>
+          <li><strong>Database errors:</strong> Verify MySQL is running and credentials are correct. Run <code>mysql -u root -p &lt; create_tables.sql</code>.</li>
+          <li><strong>Webhook sync failing:</strong> Check WEBHOOK_URL and API key. Look at bridge logs for HTTP error codes.</li>
+          <li><strong>Permission denied:</strong> Run <code>chmod +x start.sh stop.sh status.sh</code>.</li>
+        </ul>
+      </div>
+      <div class="doc-section"><h3>Management Scripts</h3>
+        <ul>
+          <li><code>./start.sh</code> — Start bridge + dashboard</li>
+          <li><code>./stop.sh</code> — Stop all services</li>
+          <li><code>./status.sh</code> — Check running status</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+// ─── Navigation ───
+let currentLogService = 'bridge';
+function nav(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelector(`nav a[data-page="${page}"]`).classList.add('active');
+  if (page === 'home') loadHome();
+  if (page === 'settings') loadSettings();
+  if (page === 'run') refreshServices();
+  if (page === 'diagnostics') runDiagnostics();
+}
+document.querySelectorAll('nav a').forEach(a => {
+  a.addEventListener('click', () => nav(a.dataset.page));
+});
+
+// ─── Toast ───
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// ─── API helper ───
+async function api(url, opts = {}) {
+  try {
+    const r = await fetch(url, opts);
+    return await r.json();
+  } catch (e) {
+    toast('Connection error: ' + e.message, 'error');
+    return null;
+  }
+}
+
+// ─── HOME ───
+async function loadHome() {
+  const s = await api('/api/status');
+  if (!s) return;
+  const cards = document.getElementById('home-cards');
+  cards.innerHTML = `
+    <div class="card"><div class="card-label">Python</div><div class="card-value ${s.pythonInstalled?'ok':'err'}">${s.pythonInstalled?'Installed':'Missing'}</div></div>
+    <div class="card"><div class="card-label">Virtual Env</div><div class="card-value ${s.venvExists?'ok':'warn'}">${s.venvExists?'Ready':'Not Created'}</div></div>
+    <div class="card"><div class="card-label">Config (.env)</div><div class="card-value ${s.envConfigured?'ok':'warn'}">${s.envConfigured?'Configured':'Missing'}</div></div>
+    <div class="card"><div class="card-label">Bridge</div><div class="card-value ${s.bridgeRunning?'ok':'err'}">${s.bridgeRunning?'Running':'Stopped'}</div></div>
+    <div class="card"><div class="card-label">Dashboard</div><div class="card-value ${s.dashboardRunning?'ok':'err'}">${s.dashboardRunning?'Running':'Stopped'}</div></div>
+  `;
+  document.getElementById('home-info').innerHTML =
+    `<b>Project:</b> ${s.projectRoot}<br><b>Python:</b> ${s.pythonVersion||'Not found'}<br><b>Platform:</b> ${s.platform}`;
+}
+
+// ─── SETUP WIZARD ───
+let setupStep = 1;
+const setupSteps = {
+  1: {
+    title: 'Check Python Installation',
+    desc: 'We need Python 3.10 or higher to run the bridge.',
+    action: 'Check Python',
+    run: async () => {
+      const r = await api('/api/setup/check-python', {method:'POST'});
+      return r;
+    }
+  },
+  2: {
+    title: 'Create Virtual Environment',
+    desc: 'An isolated Python environment keeps dependencies clean.',
+    action: 'Create .venv',
+    run: async () => {
+      const r = await api('/api/setup/create-venv', {method:'POST'});
+      return r;
+    }
+  },
+  3: {
+    title: 'Install Dependencies',
+    desc: 'Install all required Python packages from requirements.txt.',
+    action: 'Install Packages',
+    run: async () => {
+      const r = await api('/api/setup/install-deps', {method:'POST'});
+      return r;
+    }
+  },
+  4: {
+    title: 'Configure Environment',
+    desc: 'Set your device IP, database credentials, and webhook URL.',
+    action: 'Open Settings',
+    run: async () => {
+      nav('settings');
+      return {success:true, message:'Configure your settings, then return to Setup to continue.'};
+    }
+  },
+  5: {
+    title: 'Test Database Connection',
+    desc: 'Verify MySQL is running and the hikvision database exists.',
+    action: 'Test Database',
+    run: async () => {
+      const r = await api('/api/setup/test-db', {method:'POST'});
+      return r;
+    }
+  },
+  6: {
+    title: 'Test Device Connection',
+    desc: 'Check connectivity to your Hikvision terminal.',
+    action: 'Test Device',
+    run: async () => {
+      const r = await api('/api/setup/test-device', {method:'POST'});
+      return r;
+    }
+  }
+};
+
+function renderSetup() {
+  document.querySelectorAll('.step').forEach(s => {
+    const n = parseInt(s.dataset.step);
+    s.classList.remove('active', 'done');
+    if (n < setupStep) s.classList.add('done');
+    if (n === setupStep) s.classList.add('active');
+  });
+  const step = setupSteps[setupStep];
+  document.getElementById('setup-content').innerHTML =
+    `<h3 style="margin-bottom:8px;">Step ${setupStep}: ${step.title}</h3><p style="color:var(--gray);font-size:14px;">${step.desc}</p><div id="setup-result" style="margin-top:12px;"></div>`;
+  const actions = document.getElementById('setup-actions');
+  actions.innerHTML = '';
+  if (setupStep > 1) {
+    const back = document.createElement('button');
+    back.className = 'btn btn-outline';
+    back.textContent = 'Back';
+    back.onclick = () => { setupStep--; renderSetup(); };
+    actions.appendChild(back);
+  }
+  const runBtn = document.createElement('button');
+  runBtn.className = 'btn btn-brand';
+  runBtn.textContent = step.action;
+  runBtn.onclick = async () => {
+    runBtn.disabled = true;
+    runBtn.innerHTML = '<span class="spinner"></span> Working...';
+    const r = await step.run();
+    runBtn.disabled = false;
+    runBtn.textContent = step.action;
+    if (r) {
+      const res = document.getElementById('setup-result');
+      res.innerHTML = `<div style="padding:12px;border-radius:8px;background:${r.success?'#e8f9ee':'#ffecea'};color:${r.success?'var(--green)':'var(--red)'};font-size:13px;font-weight:600;">${r.success?'✓':'✗'} ${r.message}</div>`;
+      if (r.success) toast(r.message, 'success');
+      else toast(r.message, 'error');
+    }
+  };
+  actions.appendChild(runBtn);
+  if (setupStep < 6) {
+    const next = document.createElement('button');
+    next.className = 'btn btn-outline';
+    next.textContent = 'Next →';
+    next.onclick = () => { setupStep++; renderSetup(); };
+    actions.appendChild(next);
+  }
+  if (setupStep === 6) {
+    const finish = document.createElement('button');
+    finish.className = 'btn btn-green';
+    finish.textContent = 'Finish → Run Services';
+    finish.onclick = () => nav('run');
+    actions.appendChild(finish);
+  }
+}
+
+// ─── SETTINGS ───
+const settingsSchema = {
+  device: [
+    {key:'DEVICE_IP', label:'Device IP', placeholder:'192.168.1.128'},
+    {key:'DEVICE_USER', label:'Username', placeholder:'admin'},
+    {key:'DEVICE_PASS', label:'Password', placeholder:'password', type:'password'},
+    {key:'DEVICE_ID', label:'Device ID', placeholder:'door1'},
+  ],
+  db: [
+    {key:'DB_HOST', label:'Host', placeholder:'localhost'},
+    {key:'DB_PORT', label:'Port', placeholder:'3306'},
+    {key:'DB_NAME', label:'Database', placeholder:'hikvision'},
+    {key:'DB_USER', label:'Username', placeholder:'root'},
+    {key:'DB_PASS', label:'Password', placeholder:'root', type:'password'},
+    {key:'DB_SOCKET', label:'Unix Socket (optional)', placeholder:'/tmp/mysql.sock', full:true},
+  ],
+  webhook: [
+    {key:'WEBHOOK_URL', label:'Webhook URL', placeholder:'http://...', full:true},
+    {key:'WEBHOOK_API_KEY', label:'API Key', placeholder:'your_api_key'},
+    {key:'BATCH_UPLOAD_SIZE', label:'Batch Size', placeholder:'10'},
+  ],
+  bridge: [
+    {key:'POLL_INTERVAL', label:'Poll Interval (sec)', placeholder:'2'},
+    {key:'LOG_LEVEL', label:'Log Level', placeholder:'INFO'},
+    {key:'LOG_FILE', label:'Log File', placeholder:'hikvision_bridge.log'},
+    {key:'DATA_RETENTION_DAYS', label:'Data Retention (days)', placeholder:'90'},
+  ]
+};
+
+let currentConfig = {};
+
+async function loadSettings() {
+  currentConfig = await api('/api/config') || {};
+  for (const [section, fields] of Object.entries(settingsSchema)) {
+    const container = document.getElementById('settings-' + section);
+    container.innerHTML = '';
+    for (const f of fields) {
+      const div = document.createElement('div');
+      div.className = 'form-group' + (f.full ? ' full' : '');
+      div.innerHTML = `<label>${f.label}</label><input type="${f.type||'text'}" id="cfg-${f.key}" placeholder="${f.placeholder}" value="${currentConfig[f.key]||''}">`;
+      container.appendChild(div);
+    }
+  }
+}
+
+async function saveSettings() {
+  const data = {};
+  for (const fields of Object.values(settingsSchema)) {
+    for (const f of fields) {
+      const val = document.getElementById('cfg-' + f.key)?.value;
+      if (val !== undefined && val !== '') data[f.key] = val;
+    }
+  }
+  const btn = document.getElementById('save-settings-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Saving...';
+  const r = await api('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+  btn.disabled = false;
+  btn.textContent = 'Save Configuration';
+  if (r?.success) toast('Configuration saved successfully', 'success');
+  else toast('Failed to save', 'error');
+}
+
+// ─── SERVICES ───
+async function refreshServices() {
+  const s = await api('/api/status');
+  if (!s) return;
+  const bs = document.getElementById('bridge-status');
+  const ds = document.getElementById('dashboard-status');
+  bs.textContent = s.bridgeRunning ? 'Running' : 'Stopped';
+  bs.className = 'card-value ' + (s.bridgeRunning ? 'ok' : 'err');
+  ds.textContent = s.dashboardRunning ? 'Running' : 'Stopped';
+  ds.className = 'card-value ' + (s.dashboardRunning ? 'ok' : 'err');
+}
+
+async function serviceAction(service, action) {
+  const r = await api(`/api/${service}/${action}`, {method:'POST'});
+  if (r) {
+    toast(r.message, r.success ? 'success' : 'error');
+    setTimeout(refreshServices, 1000);
+  }
+}
+
+// ─── DIAGNOSTICS ───
+async function runDiagnostics() {
+  const list = document.getElementById('diag-list');
+  list.innerHTML = '<li style="padding:16px;color:var(--gray);">Running checks...</li>';
+  const checks = await api('/api/diagnostics');
+  if (!checks) return;
+  list.innerHTML = '';
+  for (const c of checks) {
+    const li = document.createElement('li');
+    li.className = 'check-item';
+    li.innerHTML = `
+      <div class="check-icon ${c.ok?'ok':'fail'}">${c.ok?'✓':'✗'}</div>
+      <div><div class="check-name">${c.name}</div><div class="check-detail">${c.detail}</div></div>
+    `;
+    list.appendChild(li);
+  }
+}
+
+async function testConnection(type) {
+  const result = document.getElementById('conn-result');
+  result.textContent = 'Testing...';
+  const endpoint = type === 'db' ? '/api/setup/test-db' : '/api/setup/test-device';
+  const r = await api(endpoint, {method:'POST'});
+  if (r) {
+    result.innerHTML = `<div style="padding:12px;border-radius:8px;background:${r.success?'#e8f9ee':'#ffecea'};font-weight:600;font-size:13px;">${r.success?'✓':'✗'} ${r.message}</div>`;
+  }
+}
+
+// ─── LOGS ───
+async function loadLogs(service) {
+  currentLogService = service;
+  document.getElementById('log-bridge-btn').className = service==='bridge'?'btn btn-brand':'btn btn-outline';
+  document.getElementById('log-dash-btn').className = service==='dashboard'?'btn btn-brand':'btn btn-outline';
+  const r = await api('/api/logs/' + service);
+  const viewer = document.getElementById('log-output');
+  if (!r || !r.lines || r.lines.length === 0) {
+    viewer.textContent = 'No log entries found.';
+    return;
+  }
+  viewer.innerHTML = r.lines.map(l => {
+    let cls = '';
+    if (/error|exception|fail/i.test(l)) cls = 'log-err';
+    else if (/warn/i.test(l)) cls = 'log-warn';
+    else if (/info/i.test(l)) cls = 'log-info';
+    else if (/success|connected|started/i.test(l)) cls = 'log-ok';
+    return `<span class="${cls}">${escHtml(l)}</span>`;
+  }).join('\n');
+  viewer.scrollTop = viewer.scrollHeight;
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(s));
+  return d.innerHTML;
+}
+
+// ─── Init ───
+loadHome();
+renderSetup();
+</script>
+</body>
+</html>

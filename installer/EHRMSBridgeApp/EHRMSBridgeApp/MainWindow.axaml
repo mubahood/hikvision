@@ -1,0 +1,404 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="EHRMSBridgeApp.MainWindow"
+        Title="EHRMS Device Bridge Manager"
+        Width="1100" Height="720"
+        MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="#F5F5F7">
+
+  <Window.Styles>
+    <!-- Sidebar button -->
+    <Style Selector="Button.nav">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="#99FFFFFF"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="Padding" Value="20,11"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="FontSize" Value="13.5"/>
+      <Setter Property="FontWeight" Value="Medium"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Margin" Value="8,1"/>
+    </Style>
+    <Style Selector="Button.nav:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#18FFFFFF"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.nav-active">
+      <Setter Property="Background" Value="#790D0B"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="Padding" Value="20,11"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="FontSize" Value="13.5"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Margin" Value="8,1"/>
+    </Style>
+    <!-- Brand button -->
+    <Style Selector="Button.brand">
+      <Setter Property="Background" Value="#790D0B"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="Padding" Value="18,10"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.brand:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#5A0908"/>
+    </Style>
+    <!-- Outline button -->
+    <Style Selector="Button.outline">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="#1D1D1F"/>
+      <Setter Property="BorderBrush" Value="#D2D2D7"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+      <Setter Property="Padding" Value="18,10"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.outline:pointerover /template/ ContentPresenter">
+      <Setter Property="BorderBrush" Value="#790D0B"/>
+      <Setter Property="Foreground" Value="#790D0B"/>
+    </Style>
+    <!-- Green button -->
+    <Style Selector="Button.green">
+      <Setter Property="Background" Value="#34C759"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="Padding" Value="18,10"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <!-- Red button -->
+    <Style Selector="Button.red">
+      <Setter Property="Background" Value="#FF3B30"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="Padding" Value="18,10"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <!-- Card panel -->
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="White"/>
+      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="Padding" Value="20"/>
+      <Setter Property="BoxShadow" Value="0 2 12 0 #14000000"/>
+    </Style>
+    <!-- Section title -->
+    <Style Selector="TextBlock.section-title">
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Margin" Value="0,0,0,14"/>
+    </Style>
+    <!-- Status dot -->
+    <Style Selector="Ellipse.dot-green">
+      <Setter Property="Width" Value="10"/>
+      <Setter Property="Height" Value="10"/>
+      <Setter Property="Fill" Value="#34C759"/>
+    </Style>
+    <Style Selector="Ellipse.dot-red">
+      <Setter Property="Width" Value="10"/>
+      <Setter Property="Height" Value="10"/>
+      <Setter Property="Fill" Value="#FF3B30"/>
+    </Style>
+    <!-- Input -->
+    <Style Selector="TextBox.cfg">
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="10,8"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="BorderBrush" Value="#D2D2D7"/>
+      <Setter Property="BorderThickness" Value="1.5"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid ColumnDefinitions="250,*">
+
+    <!-- ═══ SIDEBAR ═══ -->
+    <Border Grid.Column="0" Background="#1D1D1F">
+      <DockPanel>
+        <!-- Header -->
+        <StackPanel DockPanel.Dock="Top" Margin="22,24,22,0">
+          <TextBlock Text="MOUNTAINS OF THE MOON" FontSize="10" FontWeight="Bold" Foreground="#F3E5E5"
+                     LetterSpacing="1"/>
+          <TextBlock Text="EHRMS Portal" FontSize="17" FontWeight="Bold" Foreground="White" Margin="0,3,0,0"/>
+          <TextBlock Text="Device Bridge Manager" FontSize="11.5" Foreground="#6E6E73" Margin="0,2,0,0"/>
+          <Border Height="3" Background="#790D0B" CornerRadius="2" Margin="0,14,0,16"/>
+        </StackPanel>
+
+        <!-- Footer -->
+        <TextBlock DockPanel.Dock="Bottom" Text="v1.0 — © 2026 MMU" FontSize="10" Foreground="#6E6E73"
+                   Margin="22,0,0,16"/>
+
+        <!-- Nav -->
+        <StackPanel Margin="0,4,0,0" x:Name="NavPanel">
+          <Button Classes="nav-active" x:Name="NavHome" Click="Nav_Click" Tag="Home">🏠  Home</Button>
+          <Button Classes="nav" x:Name="NavSetup" Click="Nav_Click" Tag="Setup">🔧  Setup Wizard</Button>
+          <Button Classes="nav" x:Name="NavSettings" Click="Nav_Click" Tag="Settings">⚙️  Settings</Button>
+          <Button Classes="nav" x:Name="NavRun" Click="Nav_Click" Tag="Run">▶️  Run Services</Button>
+          <Button Classes="nav" x:Name="NavDiag" Click="Nav_Click" Tag="Diagnostics">🩺  Diagnostics</Button>
+          <Button Classes="nav" x:Name="NavLogs" Click="Nav_Click" Tag="Logs">📄  Logs</Button>
+          <Button Classes="nav" x:Name="NavDocs" Click="Nav_Click" Tag="Docs">📖  User Guide</Button>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- ═══ CONTENT ═══ -->
+    <ScrollViewer Grid.Column="1" Padding="36,28,36,20">
+      <Panel>
+
+        <!-- ═══ HOME PAGE ═══ -->
+        <StackPanel x:Name="PageHome" IsVisible="True" Spacing="16">
+          <TextBlock Text="Dashboard" FontSize="26" FontWeight="Bold"/>
+          <TextBlock Text="System overview and quick actions" Foreground="#6E6E73" FontSize="13.5" Margin="0,0,0,10"/>
+
+          <!-- Status cards row -->
+          <WrapPanel x:Name="HomeCards" Orientation="Horizontal">
+            <!-- Filled by code-behind -->
+          </WrapPanel>
+
+          <!-- Quick actions -->
+          <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
+            <Button Classes="brand" Click="Nav_Click" Tag="Setup">Run Setup Wizard</Button>
+            <Button Classes="outline" Click="Nav_Click" Tag="Run">Manage Services</Button>
+            <Button Classes="outline" Click="Nav_Click" Tag="Diagnostics">Run Diagnostics</Button>
+          </StackPanel>
+
+          <!-- Info panel -->
+          <Border Classes="card" Margin="0,8,0,0">
+            <StackPanel>
+              <TextBlock Classes="section-title" Text="System Information"/>
+              <TextBlock x:Name="HomeInfo" Foreground="#6E6E73" FontSize="13" TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- ═══ SETUP PAGE ═══ -->
+        <StackPanel x:Name="PageSetup" IsVisible="False" Spacing="16">
+          <TextBlock Text="Setup Wizard" FontSize="26" FontWeight="Bold"/>
+          <TextBlock Text="Step-by-step installation and configuration" Foreground="#6E6E73" FontSize="13.5" Margin="0,0,0,6"/>
+
+          <!-- Step indicators -->
+          <WrapPanel x:Name="StepIndicators" Orientation="Horizontal" Margin="0,0,0,8">
+            <!-- Filled by code -->
+          </WrapPanel>
+
+          <!-- Step content -->
+          <Border Classes="card">
+            <StackPanel Spacing="10">
+              <TextBlock x:Name="StepTitle" FontSize="16" FontWeight="Bold"/>
+              <TextBlock x:Name="StepDesc" Foreground="#6E6E73" FontSize="13" TextWrapping="Wrap"/>
+              <Border x:Name="StepResult" IsVisible="False" CornerRadius="8" Padding="14" Margin="0,6,0,0">
+                <TextBlock x:Name="StepResultText" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
+              </Border>
+              <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">
+                <Button Classes="outline" x:Name="StepBack" Click="StepBack_Click">← Back</Button>
+                <Button Classes="brand" x:Name="StepAction" Click="StepAction_Click">Check</Button>
+                <Button Classes="outline" x:Name="StepNext" Click="StepNext_Click">Next →</Button>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- ═══ SETTINGS PAGE ═══ -->
+        <StackPanel x:Name="PageSettings" IsVisible="False" Spacing="16">
+          <TextBlock Text="Settings" FontSize="26" FontWeight="Bold"/>
+          <TextBlock Text="Configure environment variables (.env)" Foreground="#6E6E73" FontSize="13.5" Margin="0,0,0,6"/>
+
+          <!-- Device config -->
+          <Border Classes="card">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="section-title" Text="Device Configuration"/>
+              <WrapPanel x:Name="CfgDevice" Orientation="Horizontal">
+                <!-- Generated by code -->
+              </WrapPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- DB config -->
+          <Border Classes="card">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="section-title" Text="Database Configuration"/>
+              <WrapPanel x:Name="CfgDb" Orientation="Horizontal">
+              </WrapPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- Webhook config -->
+          <Border Classes="card">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="section-title" Text="Webhook Configuration"/>
+              <WrapPanel x:Name="CfgWebhook" Orientation="Horizontal">
+              </WrapPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- Bridge config -->
+          <Border Classes="card">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="section-title" Text="Bridge Settings"/>
+              <WrapPanel x:Name="CfgBridge" Orientation="Horizontal">
+              </WrapPanel>
+            </StackPanel>
+          </Border>
+
+          <Button Classes="brand" Click="SaveSettings_Click" x:Name="SaveSettingsBtn">Save Configuration</Button>
+        </StackPanel>
+
+        <!-- ═══ RUN SERVICES PAGE ═══ -->
+        <StackPanel x:Name="PageRun" IsVisible="False" Spacing="16">
+          <TextBlock Text="Run Services" FontSize="26" FontWeight="Bold"/>
+          <TextBlock Text="Start, stop, and monitor bridge and dashboard" Foreground="#6E6E73" FontSize="13.5" Margin="0,0,0,6"/>
+
+          <WrapPanel Orientation="Horizontal">
+            <!-- Bridge card -->
+            <Border Classes="card" Margin="0,0,16,0" MinWidth="280">
+              <StackPanel Spacing="8">
+                <TextBlock Text="BRIDGE SERVICE" FontSize="11" FontWeight="Bold" Foreground="#6E6E73" LetterSpacing="0.5"/>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Ellipse x:Name="BridgeDot" Classes="dot-red"/>
+                  <TextBlock x:Name="BridgeStatusText" Text="Stopped" FontSize="22" FontWeight="Bold" Foreground="#FF3B30"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
+                  <Button Classes="green" Click="BridgeStart_Click">Start</Button>
+                  <Button Classes="red" Click="BridgeStop_Click">Stop</Button>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <!-- Dashboard card -->
+            <Border Classes="card" MinWidth="280">
+              <StackPanel Spacing="8">
+                <TextBlock Text="STREAMLIT DASHBOARD" FontSize="11" FontWeight="Bold" Foreground="#6E6E73" LetterSpacing="0.5"/>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Ellipse x:Name="DashDot" Classes="dot-red"/>
+                  <TextBlock x:Name="DashStatusText" Text="Stopped" FontSize="22" FontWeight="Bold" Foreground="#FF3B30"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
+                  <Button Classes="green" Click="DashStart_Click">Start</Button>
+                  <Button Classes="red" Click="DashStop_Click">Stop</Button>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </WrapPanel>
+
+          <Border Classes="card">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="section-title" Text="Quick Actions"/>
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Classes="brand" Click="StartAll_Click">Start All</Button>
+                <Button Classes="red" Click="StopAll_Click">Stop All</Button>
+                <Button Classes="outline" Click="OpenDashboard_Click">Open Dashboard in Browser</Button>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card">
+            <StackPanel>
+              <TextBlock Classes="section-title" Text="Status Message"/>
+              <TextBlock x:Name="ServiceMsg" Foreground="#6E6E73" FontSize="13" TextWrapping="Wrap" Text="Ready."/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- ═══ DIAGNOSTICS PAGE ═══ -->
+        <StackPanel x:Name="PageDiagnostics" IsVisible="False" Spacing="16">
+          <TextBlock Text="Diagnostics" FontSize="26" FontWeight="Bold"/>
+          <TextBlock Text="System health checks and troubleshooting" Foreground="#6E6E73" FontSize="13.5" Margin="0,0,0,6"/>
+
+          <Border Classes="card">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="section-title" Text="System Health"/>
+              <Button Classes="brand" Click="RunDiag_Click">Run All Checks</Button>
+              <StackPanel x:Name="DiagList" Spacing="2" Margin="0,8,0,0">
+                <TextBlock Text="Click 'Run All Checks' to start." Foreground="#6E6E73" FontSize="13"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="section-title" Text="Connection Tests"/>
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Classes="outline" Click="TestDb_Click">Test Database</Button>
+                <Button Classes="outline" Click="TestDevice_Click">Test Device</Button>
+              </StackPanel>
+              <TextBlock x:Name="ConnResult" Foreground="#6E6E73" FontSize="13" TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- ═══ LOGS PAGE ═══ -->
+        <StackPanel x:Name="PageLogs" IsVisible="False" Spacing="16">
+          <TextBlock Text="Logs" FontSize="26" FontWeight="Bold"/>
+          <TextBlock Text="View service log output" Foreground="#6E6E73" FontSize="13.5" Margin="0,0,0,6"/>
+
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <Button Classes="brand" x:Name="LogBridgeBtn" Click="LogBridge_Click">Bridge Logs</Button>
+            <Button Classes="outline" x:Name="LogDashBtn" Click="LogDash_Click">Dashboard Logs</Button>
+            <Button Classes="outline" Click="LogRefresh_Click">Refresh</Button>
+          </StackPanel>
+
+          <Border Background="#1E1E1E" CornerRadius="10" Padding="16" MinHeight="300">
+            <ScrollViewer>
+              <TextBlock x:Name="LogOutput" Foreground="#D4D4D4" FontFamily="Consolas,Menlo,monospace"
+                         FontSize="11.5" TextWrapping="Wrap" Text="Select a log to view..."/>
+            </ScrollViewer>
+          </Border>
+        </StackPanel>
+
+        <!-- ═══ DOCS PAGE ═══ -->
+        <StackPanel x:Name="PageDocs" IsVisible="False" Spacing="16">
+          <TextBlock Text="User Guide" FontSize="26" FontWeight="Bold"/>
+          <TextBlock Text="Quick reference for using the EHRMS Device Bridge" Foreground="#6E6E73" FontSize="13.5" Margin="0,0,0,6"/>
+
+          <Border Classes="card">
+            <StackPanel Spacing="14">
+              <TextBlock Text="What is this?" FontSize="14" FontWeight="Bold" Foreground="#790D0B"/>
+              <TextBlock TextWrapping="Wrap" FontSize="13" LineHeight="20"
+                         Text="The EHRMS Device Bridge connects Hikvision DS-K1T680 face recognition terminals to the EHRMS backend. It polls the device for access control events (face scans, card swipes), stores them in MySQL, and syncs them to your server via webhook."/>
+
+              <Border Height="1" Background="#F0F0F0" Margin="0,4"/>
+
+              <TextBlock Text="Getting Started" FontSize="14" FontWeight="Bold" Foreground="#790D0B"/>
+              <TextBlock TextWrapping="Wrap" FontSize="13" LineHeight="20"
+                         Text="1. Use the Setup Wizard to install and configure everything step by step.&#x0a;2. Go to Settings to update your device IP, database credentials, and webhook URL.&#x0a;3. Use Run Services to start/stop the bridge and the Streamlit dashboard."/>
+
+              <Border Height="1" Background="#F0F0F0" Margin="0,4"/>
+
+              <TextBlock Text="Architecture" FontSize="14" FontWeight="Bold" Foreground="#790D0B"/>
+              <TextBlock TextWrapping="Wrap" FontSize="13" LineHeight="20"
+                         Text="• Bridge (hikvision_bridge.py) — Polls Hikvision device every 2s via ISAPI, saves events to MySQL + JSON, POSTs to webhook.&#x0a;• Dashboard (dashboard.py) — Streamlit web UI on port 8502 for monitoring, syncing, and management.&#x0a;• Database — MySQL stores all events with sync status tracking and retry support."/>
+
+              <Border Height="1" Background="#F0F0F0" Margin="0,4"/>
+
+              <TextBlock Text="Configuration" FontSize="14" FontWeight="Bold" Foreground="#790D0B"/>
+              <TextBlock TextWrapping="Wrap" FontSize="13" LineHeight="20" FontFamily="Consolas,Menlo,monospace"
+                         Text="DEVICE_IP       — Hikvision terminal IP address&#x0a;DEVICE_USER     — Device admin username&#x0a;DEVICE_PASS     — Device admin password&#x0a;DB_HOST/PORT    — MySQL connection&#x0a;DB_USER/PASS    — MySQL credentials&#x0a;DB_NAME         — Database name (hikvision)&#x0a;WEBHOOK_URL     — EHRMS backend endpoint&#x0a;WEBHOOK_API_KEY — Sent as X-API-Key header&#x0a;POLL_INTERVAL   — Seconds between polls (default: 2)"/>
+
+              <Border Height="1" Background="#F0F0F0" Margin="0,4"/>
+
+              <TextBlock Text="Troubleshooting" FontSize="14" FontWeight="Bold" Foreground="#790D0B"/>
+              <TextBlock TextWrapping="Wrap" FontSize="13" LineHeight="20"
+                         Text="• Bridge won't start — Check Diagnostics page. Verify .env and dependencies.&#x0a;• No events — Test device connection. Check device IP is correct and reachable.&#x0a;• Database errors — Verify MySQL is running. Run: mysql -u root -p &lt; create_tables.sql&#x0a;• Webhook failing — Check WEBHOOK_URL and API key in logs.&#x0a;• Permission denied — Run: chmod +x start.sh stop.sh status.sh"/>
+
+              <Border Height="1" Background="#F0F0F0" Margin="0,4"/>
+
+              <TextBlock Text="Management Scripts" FontSize="14" FontWeight="Bold" Foreground="#790D0B"/>
+              <TextBlock TextWrapping="Wrap" FontSize="13" LineHeight="20"
+                         Text="./start.sh  — Start bridge + dashboard&#x0a;./stop.sh   — Stop all services&#x0a;./status.sh — Check running status"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+      </Panel>
+    </ScrollViewer>
+
+  </Grid>
+</Window>
