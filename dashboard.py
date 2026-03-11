@@ -993,6 +993,56 @@ elif current_page == "events":
         # Export button placeholder
         export_clicked = st.button("Export", use_container_width=True, key="ev_export")
     
+    # === DELETE CONTROLS ===
+    if 'confirm_delete_all' not in st.session_state:
+        st.session_state.confirm_delete_all = False
+    
+    with st.expander("🗑️ Delete Events", expanded=False):
+        del_col1, del_col2, del_col3 = st.columns(3)
+        
+        with del_col1:
+            st.markdown('<div style="font-size:11px;color:#6B7280;margin-bottom:4px;">Delete events older than</div>', unsafe_allow_html=True)
+            del_days = st.number_input("Days", min_value=1, max_value=3650, value=90, label_visibility="collapsed", key="del_days")
+            if st.button(f"Delete Older Than {del_days} Days", use_container_width=True, key="btn_del_old"):
+                deleted = event_ctrl.delete_old_events(days=del_days)
+                st.toast(f"Deleted {deleted} event(s) older than {del_days} days.")
+                st.rerun()
+        
+        with del_col2:
+            st.markdown('<div style="font-size:11px;color:#6B7280;margin-bottom:4px;">Delete by sync status</div>', unsafe_allow_html=True)
+            del_status = st.selectbox("Status", ["synced", "failed", "pending"], label_visibility="collapsed", key="del_status")
+            if st.button(f"Delete All '{del_status}'", use_container_width=True, key="btn_del_status"):
+                from database import get_db as _gdb
+                _db = _gdb()
+                conn = _db.get_connection()
+                cur = conn.cursor()
+                cur.execute("DELETE FROM events WHERE sync_status = %s", (del_status,))
+                removed = cur.rowcount
+                cur.close()
+                conn.close()
+                st.toast(f"Deleted {removed} '{del_status}' event(s).")
+                st.rerun()
+        
+        with del_col3:
+            st.markdown('<div style="font-size:11px;color:#DC2626;margin-bottom:4px;">Danger zone</div>', unsafe_allow_html=True)
+            if not st.session_state.confirm_delete_all:
+                if st.button("Delete ALL Events", use_container_width=True, key="btn_del_all", type="primary"):
+                    st.session_state.confirm_delete_all = True
+                    st.rerun()
+            else:
+                st.warning("Are you sure? This cannot be undone.")
+                yes_col, no_col = st.columns(2)
+                with yes_col:
+                    if st.button("Yes, Delete All", use_container_width=True, key="btn_confirm_del", type="primary"):
+                        deleted = event_ctrl.delete_all_events()
+                        st.session_state.confirm_delete_all = False
+                        st.toast(f"Deleted all {deleted} event(s).")
+                        st.rerun()
+                with no_col:
+                    if st.button("Cancel", use_container_width=True, key="btn_cancel_del"):
+                        st.session_state.confirm_delete_all = False
+                        st.rerun()
+    
     # Query data
     start_date = datetime.combine(date_start, datetime.min.time())
     end_date = datetime.combine(date_end, datetime.max.time())
@@ -1190,9 +1240,17 @@ elif current_page == "events":
                 with st.expander("Raw JSON Data"):
                     st.json(event_data)
                 
-                if st.button("Close", key="close_details"):
-                    st.session_state.view_event_id = None
-                    st.rerun()
+                btn_close, btn_del = st.columns(2)
+                with btn_close:
+                    if st.button("Close", use_container_width=True, key="close_details"):
+                        st.session_state.view_event_id = None
+                        st.rerun()
+                with btn_del:
+                    if st.button("Delete This Event", use_container_width=True, key="del_single_event", type="primary"):
+                        event_ctrl.delete_event(st.session_state.view_event_id)
+                        st.session_state.view_event_id = None
+                        st.toast(f"Event #{event_data.get('id')} deleted.")
+                        st.rerun()
     else:
         st.markdown('<div style="padding:40px;text-align:center;color:#6B7280;font-size:12px;background:#FAFAFA;border:1px solid #E5E7EB;">No events found for the selected filters</div>', unsafe_allow_html=True)
 

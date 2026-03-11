@@ -379,6 +379,89 @@ class Database:
             if conn:
                 conn.close()
     
+    def delete_event(self, event_id: int) -> bool:
+        """Delete a single event by ID"""
+        conn = None
+        cursor = None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM events WHERE id = %s", (event_id,))
+            deleted = cursor.rowcount
+            logger.info(f"Deleted event ID {event_id}: {deleted} row(s)")
+            return deleted > 0
+        except Error as e:
+            logger.error(f"Error deleting event {event_id}: {e}")
+            return False
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+    
+    def delete_events_by_ids(self, event_ids: List[int]) -> int:
+        """Delete multiple events by IDs. Returns count of deleted rows."""
+        if not event_ids:
+            return 0
+        conn = None
+        cursor = None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            placeholders = ','.join(['%s'] * len(event_ids))
+            cursor.execute(f"DELETE FROM events WHERE id IN ({placeholders})", tuple(event_ids))
+            deleted = cursor.rowcount
+            logger.info(f"Deleted {deleted} events by IDs")
+            return deleted
+        except Error as e:
+            logger.error(f"Error deleting events by IDs: {e}")
+            return 0
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+    
+    def delete_events_before(self, cutoff_date: datetime) -> int:
+        """Delete events older than the given date. Returns count of deleted rows."""
+        conn = None
+        cursor = None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM events WHERE occur_time < %s", (cutoff_date,))
+            deleted = cursor.rowcount
+            logger.info(f"Deleted {deleted} events before {cutoff_date}")
+            return deleted
+        except Error as e:
+            logger.error(f"Error deleting events before {cutoff_date}: {e}")
+            return 0
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+    
+    def delete_all_events(self) -> int:
+        """Delete ALL events. Returns count of deleted rows."""
+        conn = None
+        cursor = None
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM events")
+            deleted = cursor.rowcount
+            logger.info(f"Deleted ALL events: {deleted} row(s)")
+            return deleted
+        except Error as e:
+            logger.error(f"Error deleting all events: {e}")
+            return 0
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
+
     def get_config(self, key: Optional[str] = None) -> Dict:
         """Get configuration value(s)"""
         conn = None

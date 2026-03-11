@@ -124,6 +124,18 @@ class EventController:
         cutoff_date = datetime.now() - timedelta(days=days)
         return self.db.delete_events_before(cutoff_date)
     
+    def delete_event(self, event_id: int) -> bool:
+        """Delete a single event by ID"""
+        return self.db.delete_event(event_id)
+    
+    def delete_events_by_ids(self, event_ids: list) -> int:
+        """Delete multiple events by IDs"""
+        return self.db.delete_events_by_ids(event_ids)
+    
+    def delete_all_events(self) -> int:
+        """Delete all events"""
+        return self.db.delete_all_events()
+    
     def export_events_csv(
         self,
         start_date: Optional[datetime] = None,
