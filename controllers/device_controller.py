@@ -458,6 +458,171 @@ class DeviceController:
             
         except Exception as e:
             return {'success': False, 'count': 0, 'error': str(e)}
+    
+    # ================================================================
+    # HTTP Listening Host — configure device to PUSH events to bridge
+    # ================================================================
+    
+    def get_http_listening_hosts(self) -> Dict[str, Any]:
+        """Get current HTTP Listening Host configuration from device"""
+        try:
+            # Try JSON format first
+            url = f"{self.base_url}/ISAPI/Event/notification/httpHosts"
+            response = requests.get(url, auth=self.auth, timeout=self.timeout)
+            
+            if response.status_code == 200:
+                # Try JSON
+                try:
+                    data = response.json()
+                    hosts = data.get('HttpHostNotificationList', {}).get('HttpHostNotification', [])
+                    if isinstance(hosts, dict):
+                        hosts = [hosts]
+                    return {'success': True, 'hosts': hosts, 'format': 'json', 'raw': data}
+                except Exception:
+                    pass
+                
+                # Try XML
+                try:
+                    import xml.etree.ElementTree as ET
+                    root = ET.fromstring(response.text)
+                    ns = {'hik': 'http://www.hikvision.com/ver20/XMLSchema'}
+                    
+                    hosts = []
+                    for host_elem in root.findall('.//hik:HttpHostNotification', ns) or root.findall('.//HttpHostNotification'):
+                        host = {}
+                        for child in host_elem:
+                            tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+                            host[tag] = child.text
+                        hosts.append(host)
+                    
+                    return {'success': True, 'hosts': hosts, 'format': 'xml', 'raw': response.text}
+                except Exception:
+                    return {'success': True, 'hosts': [], 'format': 'unknown', 'raw': response.text}
+            else:
+                return {'success': False, 'message': f'HTTP {response.status_code}', 'hosts': []}
+                
+        except requests.exceptions.Timeout:
+            return {'success': False, 'message': 'Timeout', 'hosts': []}
+        except requests.exceptions.ConnectionError:
+            return {'success': False, 'message': 'Connection failed', 'hosts': []}
+        except Exception as e:
+            return {'success': False, 'message': str(e), 'hosts': []}
+    
+    def configure_http_listening_host(self, listener_ip: str, listener_port: int = 8090, 
+                                       host_id: str = '1') -> Dict[str, Any]:
+        """
+        Configure the device to push events to a listening HTTP server.
+        
+        Args:
+            listener_ip: IP address of the bridge server (where events will be sent)
+            listener_port: Port the bridge listener is running on
+            host_id: Host ID to configure (usually '1')
+        """
+        try:
+            url = f"{self.base_url}/ISAPI/Event/notification/httpHosts/{host_id}"
+            
+            # Try JSON format first
+            json_payload = {
+                'HttpHostNotification': {
+                    'id': host_id,
+                    'url': '/',
+                    'protocolType': 'HTTP',
+                    'parameterFormatType': 'JSON',
+                    'addressingFormatType': 'ipaddress',
+                    'ipAddress': listener_ip,
+                    'portNo': listener_port,
+                    'httpAuthenticationMethod': 'none',
+                }
+            }
+            
+            response = requests.put(
+                url, auth=self.auth, json=json_payload, timeout=self.timeout
+            )
+            
+            if response.status_code == 200:
+                return {'success': True, 'message': f'Device will push events to {listener_ip}:{listener_port}'}
+            
+            # If JSON fails, try XML
+            xml_payload = f"""<?xml version="1.0" encoding="UTF-8"?>
+<HttpHostNotification xmlns="http://www.hikvision.com/ver20/XMLSchema" version="2.0">
+    <id>{host_id}</id>
+    <url>/</url>
+    <protocolType>HTTP</protocolType>
+    <parameterFormatType>JSON</parameterFormatType>
+    <addressingFormatType>ipaddress</addressingFormatType>
+    <ipAddress>{listener_ip}</ipAddress>
+    <portNo>{listener_port}</portNo>
+    <httpAuthenticationMethod>none</httpAuthenticationMethod>
+</HttpHostNotification>"""
+            
+            headers = {'Content-Type': 'application/xml'}
+            response = requests.put(
+                url, auth=self.auth, data=xml_payload, headers=headers, timeout=self.timeout
+            )
+            
+            if response.status_code == 200:
+                return {'success': True, 'message': f'Device will push events to {listener_ip}:{listener_port} (XML)'}
+            else:
+                return {'success': False, 'message': f'HTTP {response.status_code}: {response.text[:200]}'}
+                
+        except requests.exceptions.Timeout:
+            return {'success': False, 'message': 'Timeout connecting to device'}
+        except requests.exceptions.ConnectionError:
+            return {'success': False, 'message': 'Cannot reach device'}
+        except Exception as e:
+            return {'success': False, 'message': str(e)}
+    
+    def delete_http_listening_host(self, host_id: str = '1') -> Dict[str, Any]:
+        """Remove the HTTP Listening Host configuration from device"""
+        try:
+            url = f"{self.base_url}/ISAPI/Event/notification/httpHosts/{host_id}"
+            response = requests.delete(url, auth=self.auth, timeout=self.timeout)
+            
+            if response.status_code == 200:
+                return {'success': True, 'message': 'HTTP listening host removed'}
+            else:
+                return {'success': False, 'message': f'HTTP {response.status_code}: {response.text[:200]}'}
+        except Exception as e:
+            return {'success': False, 'message': str(e)}
+    
+    def subscribe_events(self, listener_ip: str, listener_port: int = 8090) -> Dict[str, Any]:
+        """
+        Subscribe to device events by configuring the HTTP host AND enabling event types.
+        This is the complete setup for push mode.
+        """
+        # Step 1: Configure HTTP listening host
+        result = self.configure_http_listening_host(listener_ip, listener_port)
+        if not result['success']:
+            return result
+        
+        # Step 2: Try to enable event subscription for access control events
+        try:
+            # Try subscribing to specific event types
+            url = f"{self.base_url}/ISAPI/Event/notification/httpHosts/1/notifications"
+            
+            # Try JSON
+            json_payload = {
+                'EventNotificationAlert': {
+                    'id': '1',
+                    'notificationMethod': 'HTTP',
+                    'EventTrigger': {
+                        'eventType': 'AccessControllerEvent',
+                        'inputIOPortID': '0'
+                    }
+                }
+            }
+            
+            response = requests.put(
+                url, auth=self.auth, json=json_payload, timeout=self.timeout
+            )
+            
+            if response.status_code == 200:
+                return {'success': True, 'message': f'Push mode enabled: events will be sent to {listener_ip}:{listener_port}'}
+        except Exception:
+            pass
+        
+        # Step 2 may fail on some devices but Step 1 is enough for most
+        return {'success': True, 'message': f'HTTP host configured: {listener_ip}:{listener_port}. Device may need manual event subscription via web UI.'}
 
 
 # Singleton instance

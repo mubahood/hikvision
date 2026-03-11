@@ -2104,6 +2104,105 @@ elif current_page == "configuration":
                 </div>
                 """, unsafe_allow_html=True)
     
+    # === EVENT PUSH CONFIGURATION ===
+    st.markdown('<p class="section-title"><i class="fa-solid fa-satellite-dish" style="color:#A22431;"></i> Event Push Mode (Device → Bridge)</p>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div style="background:#EFF6FF;border-left:3px solid #3B82F6;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#1E40AF;">
+        <strong>Push Mode</strong> configures the Hikvision device to automatically send events to this server.
+        This is more reliable than polling — events arrive instantly even if the bridge restarts.
+        The listener runs on port <strong>8090</strong> by default alongside the bridge.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    push_left, push_right = st.columns(2)
+    
+    with push_left:
+        st.markdown('<div class="input-label">Bridge Server IP (this server\'s IP on device network)</div>', unsafe_allow_html=True)
+        listener_ip = st.text_input(
+            "Bridge Server IP",
+            value=config.get('listener_ip', ''),
+            placeholder="e.g. 192.168.1.100",
+            label_visibility="collapsed",
+            key="config_listener_ip"
+        )
+        
+        st.markdown('<div class="input-label">Listener Port</div>', unsafe_allow_html=True)
+        listener_port = st.number_input(
+            "Port",
+            value=int(config.get('listener_port', 8090)),
+            min_value=1024,
+            max_value=65535,
+            label_visibility="collapsed",
+            key="config_listener_port"
+        )
+    
+    with push_right:
+        st.markdown('<div class="input-label">Current Push Status</div>', unsafe_allow_html=True)
+        
+        if is_connected:
+            with st.spinner("Checking device push config..."):
+                try:
+                    push_config = device_ctrl.get_http_listening_hosts()
+                    if push_config['success'] and push_config['hosts']:
+                        hosts = push_config['hosts']
+                        for h in hosts:
+                            ip = h.get('ipAddress') or h.get('ip') or '-'
+                            port = h.get('portNo') or h.get('port') or '-'
+                            proto = h.get('protocolType') or h.get('protocol') or '-'
+                            st.markdown(f"""
+                            <div style="background:#F0FDF4;border-left:3px solid #10B981;padding:6px 10px;font-size:11px;color:#166534;margin-bottom:4px;">
+                                <strong>Active:</strong> {proto} → {ip}:{port}
+                            </div>
+                            """, unsafe_allow_html=True)
+                    elif push_config['success']:
+                        st.markdown('<div style="background:#FEF3C7;border-left:3px solid #F59E0B;padding:6px 10px;font-size:11px;color:#92400E;">Push not configured on device</div>', unsafe_allow_html=True)
+                    else:
+                        st.markdown(f'<div style="background:#FEE2E2;border-left:3px solid #EF4444;padding:6px 10px;font-size:11px;color:#991B1B;">Error: {push_config.get("message", "Unknown")}</div>', unsafe_allow_html=True)
+                except Exception as e:
+                    st.markdown(f'<div style="font-size:11px;color:#6B7280;">Could not check: {e}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div style="font-size:11px;color:#6B7280;">Device offline — cannot check push config</div>', unsafe_allow_html=True)
+    
+    pb1, pb2, pb3 = st.columns(3)
+    with pb1:
+        if st.button("Enable Push Mode", use_container_width=True, key="btn_enable_push", disabled=not is_connected or not listener_ip):
+            with st.spinner("Configuring device..."):
+                config_ctrl.set_config('listener_ip', listener_ip)
+                config_ctrl.set_config('listener_port', str(listener_port))
+                result = device_ctrl.subscribe_events(listener_ip, int(listener_port))
+                if result['success']:
+                    st.toast(f"✅ {result['message']}")
+                else:
+                    st.toast(f"❌ {result['message']}")
+                st.rerun()
+    
+    with pb2:
+        if st.button("Disable Push Mode", use_container_width=True, key="btn_disable_push", disabled=not is_connected):
+            with st.spinner("Removing push config..."):
+                result = device_ctrl.delete_http_listening_host()
+                if result['success']:
+                    st.toast("Push mode disabled")
+                else:
+                    st.toast(f"Error: {result['message']}")
+                st.rerun()
+    
+    with pb3:
+        if st.button("Test Listener", use_container_width=True, key="btn_test_listener"):
+            import socket
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(2)
+                port_to_test = int(config.get('listener_port', 8090))
+                result = s.connect_ex(('127.0.0.1', port_to_test))
+                s.close()
+                if result == 0:
+                    st.toast(f"✅ Listener is running on port {port_to_test}")
+                else:
+                    st.toast(f"❌ Listener not responding on port {port_to_test}")
+            except Exception as e:
+                st.toast(f"Error: {e}")
+    
     # === CURRENT CONFIGURATION ===
     st.markdown('<p class="section-title"><i class="fa-solid fa-list" style="color:#A22431;"></i> Current Configuration</p>', unsafe_allow_html=True)
     

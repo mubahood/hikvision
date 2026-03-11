@@ -77,6 +77,8 @@ class HikvisionBridge:
         self.running = True
         self.last_serial_no = 0  # Track last processed event serial number
         self.processed_serials: Set[int] = set()  # Track processed events to avoid duplicates
+        self._device_offline_since = None  # Track when device went offline
+        self._last_offline_log = 0  # Prevent log flooding when device is offline
         
         # Batch upload management
         self.event_batch = []  # Queue for batching events
@@ -432,6 +434,13 @@ class HikvisionBridge:
         try:
             response = self.session.post(url, json=search_cond, timeout=10)
             
+            # Device is reachable again — reset offline tracking
+            if self._device_offline_since:
+                offline_dur = time.time() - self._device_offline_since
+                self.logger.info(f"🟢 Device back online after {offline_dur:.0f}s offline")
+                self._device_offline_since = None
+                self._last_offline_log = 0
+            
             if response.status_code != 200:
                 self.logger.error(f"Poll failed: HTTP {response.status_code}")
                 return []
@@ -457,10 +466,10 @@ class HikvisionBridge:
             return info_list
             
         except requests.exceptions.Timeout:
-            self.logger.error("Poll timeout")
+            self._handle_device_offline("Poll timeout")
             return []
         except requests.exceptions.ConnectionError as e:
-            self.logger.error(f"Poll connection error: {e}")
+            self._handle_device_offline(f"Connection error: {e}")
             return []
         except json.JSONDecodeError as e:
             self.logger.error(f"Poll JSON decode error: {e}")
@@ -468,6 +477,19 @@ class HikvisionBridge:
         except Exception as e:
             self.logger.error(f"Poll error: {e}\n{traceback.format_exc()}")
             return []
+    
+    def _handle_device_offline(self, error_msg: str):
+        """Handle device being offline — log sparingly, not every 2 seconds"""
+        now = time.time()
+        if not self._device_offline_since:
+            self._device_offline_since = now
+            self._last_offline_log = now
+            self.logger.error(f"🔴 Device went OFFLINE: {error_msg}")
+        elif now - self._last_offline_log >= 60:
+            # Only log every 60 seconds while device is offline
+            offline_dur = now - self._device_offline_since
+            self._last_offline_log = now
+            self.logger.warning(f"⏳ Device still offline ({offline_dur:.0f}s). Waiting for reconnection...")
     
     def _parse_polled_event(self, event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Parse a polled event into our standard format"""
@@ -633,8 +655,8 @@ class HikvisionBridge:
             return False
     
     def run(self):
-        """Main polling loop"""
-        self.logger.info("Starting Hikvision ISAPI Bridge (Polling Mode)")
+        """Main polling loop with optional push listener"""
+        self.logger.info("Starting Hikvision ISAPI Bridge (Polling + Push Mode)")
         self.logger.info(f"Config -> IP: {self.device_ip}, User: {self.device_user}, ID: {self.device_id}")
         self.logger.info(f"Config -> Poll: {self.poll_interval}s, Batch: {self.batch_size}, Upload batch: {self.batch_upload_size}")
         self.logger.info(f"Config -> Webhook: {self.webhook_url or 'NOT SET'}")
@@ -651,10 +673,20 @@ class HikvisionBridge:
             else:
                 self.logger.error(f"DB ERROR -> {db_health['message']}")
         
-        # Initial device check
+        # Initial device check (don't exit if fails — device might come online later)
         if not self._check_device_status():
-            self.logger.error("Device not accessible. Check connection and credentials.")
-            return
+            self.logger.warning("Device not accessible now, will keep retrying...")
+        
+        # Start event listener for push mode (receives events pushed from device)
+        self._event_listener = None
+        try:
+            from event_listener import EventListener
+            listener_port = int(os.getenv('LISTENER_PORT', '8090'))
+            self._event_listener = EventListener(port=listener_port)
+            self._event_listener.start(background=True)
+            self.logger.info(f"📡 Push listener active on port {listener_port}")
+        except Exception as e:
+            self.logger.warning(f"Could not start push listener: {e}")
         
         self.logger.info("🟢 Bridge is running. Waiting for face recognition events...")
         
@@ -699,8 +731,11 @@ class HikvisionBridge:
                 else:
                     consecutive_errors = 0  # No events is not an error
                 
-                # Wait before next poll
-                time.sleep(self.poll_interval)
+                # Smart wait: if device is offline, poll less frequently (every 10s instead of 2s)
+                if self._device_offline_since:
+                    time.sleep(10)
+                else:
+                    time.sleep(self.poll_interval)
                 
             except KeyboardInterrupt:
                 self.logger.info("Interrupted by user")
@@ -731,6 +766,13 @@ class HikvisionBridge:
         """Gracefully stop the bridge"""
         self.logger.info("Stopping bridge...")
         self.running = False
+        
+        # Stop push listener
+        if hasattr(self, '_event_listener') and self._event_listener:
+            try:
+                self._event_listener.stop()
+            except Exception:
+                pass
         
         # Upload any remaining events in batch
         if self.event_batch:
