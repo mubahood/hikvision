@@ -724,16 +724,16 @@ if current_page == "overview":
         <div style="display:flex;align-items:center;gap:16px;">
             {bridge_badge}
             <div class="stat-row">
-                <div class="stat-box highlight"><div class="stat-val primary">{today_stats.get('total_events', 0)}</div><div class="stat-lbl">Today</div></div>
-                <div class="stat-box"><div class="stat-val">{today_stats.get('unique_users', 0)}</div><div class="stat-lbl">Users</div></div>
-                <div class="stat-box"><div class="stat-val">{today_stats.get('doors_accessed', 0)}</div><div class="stat-lbl">Doors</div></div>
+                <div class="stat-box highlight"><div class="stat-val primary">{today_stats.get('total_events') or 0}</div><div class="stat-lbl">Today</div></div>
+                <div class="stat-box"><div class="stat-val">{today_stats.get('unique_users') or 0}</div><div class="stat-lbl">Users</div></div>
+                <div class="stat-box"><div class="stat-val">{today_stats.get('doors_accessed') or 0}</div><div class="stat-lbl">Doors</div></div>
                 <div class="stat-box"><div class="stat-val">{last_event_text}</div><div class="stat-lbl">Last Event</div></div>
             </div>
         </div>
         <div class="stat-row">
-            <div class="stat-box"><div class="stat-val success">{sync_stats.get('synced', 0)}</div><div class="stat-lbl">Synced</div></div>
-            <div class="stat-box"><div class="stat-val warning">{sync_stats.get('pending', 0)}</div><div class="stat-lbl">Pending</div></div>
-            <div class="stat-box"><div class="stat-val danger">{sync_stats.get('failed', 0)}</div><div class="stat-lbl">Failed</div></div>
+            <div class="stat-box"><div class="stat-val success">{sync_stats.get('synced') or 0}</div><div class="stat-lbl">Synced</div></div>
+            <div class="stat-box"><div class="stat-val warning">{sync_stats.get('pending') or 0}</div><div class="stat-lbl">Pending</div></div>
+            <div class="stat-box"><div class="stat-val danger">{sync_stats.get('failed') or 0}</div><div class="stat-lbl">Failed</div></div>
         </div>
     </div>
     """
@@ -829,8 +829,8 @@ if current_page == "overview":
             with user_box:
                 for i, user in enumerate(top_users):
                     name = user.get('name', '-')[:18] if user.get('name') else '-'
-                    count = user.get('access_count', 0)
-                    bar_width = min(count / max(u.get('access_count', 1) for u in top_users) * 100, 100)
+                    count = user.get('access_count') or 0
+                    bar_width = min(count / max(u.get('access_count') or 1 for u in top_users) * 100, 100)
                     st.markdown(f"""
                     <div style="margin:4px 0;">
                         <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px;">
@@ -852,7 +852,7 @@ if current_page == "overview":
         from database import get_db
         db_health = get_db().check_connection()
         db_ok = db_health['ok']
-        db_label = f"DB ({db_health['details'].get('events_count', 0)} events)" if db_ok else f"DB Error"
+        db_label = f"DB ({db_health['details'].get('events_count') or 0} events)" if db_ok else f"DB Error"
         
         health_items = [
             ("Bridge", "Running" if is_running else "Stopped", is_running),
@@ -959,7 +959,7 @@ elif current_page == "events":
     
     # Get total counts for header
     total_count_all = event_ctrl.get_event_count()
-    today_count = event_ctrl.get_today_stats().get('total_events', 0)
+    today_count = event_ctrl.get_today_stats().get('total_events') or 0
     sync_stats = event_ctrl.get_sync_stats()
     
     # === HEADER: Stats ===
@@ -968,8 +968,8 @@ elif current_page == "events":
         <div class="stat-row">
             <div class="stat-box"><div class="stat-val primary">{total_count_all:,}</div><div class="stat-lbl">Total</div></div>
             <div class="stat-box"><div class="stat-val">{today_count}</div><div class="stat-lbl">Today</div></div>
-            <div class="stat-box"><div class="stat-val" style="color:#10B981;">{sync_stats.get('synced', 0):,}</div><div class="stat-lbl">Synced</div></div>
-            <div class="stat-box"><div class="stat-val" style="color:#F59E0B;">{sync_stats.get('pending', 0):,}</div><div class="stat-lbl">Pending</div></div>
+            <div class="stat-box"><div class="stat-val" style="color:#10B981;">{sync_stats.get('synced') or 0:,}</div><div class="stat-lbl">Synced</div></div>
+            <div class="stat-box"><div class="stat-val" style="color:#F59E0B;">{sync_stats.get('pending') or 0:,}</div><div class="stat-lbl">Pending</div></div>
         </div>
     </div>
     """
@@ -1245,7 +1245,7 @@ elif current_page == "events":
                         <div class="detail-section">
                             <div class="detail-title"><i class="fa-solid fa-cloud-arrow-up" style="margin-right:4px;"></i> Sync Info</div>
                             <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value">{sync_status}</span></div>
-                            <div class="detail-row"><span class="detail-label">Attempts</span><span class="detail-value">{event_data.get('sync_attempts', 0)}</span></div>
+                            <div class="detail-row"><span class="detail-label">Attempts</span><span class="detail-value">{event_data.get('sync_attempts') or 0}</span></div>
                             <div class="detail-row"><span class="detail-label">Synced At</span><span class="detail-value">{event_data.get('synced_at', '-')}</span></div>
                         </div>
                     </div>
@@ -1505,15 +1505,15 @@ elif current_page == "bridge":
                 <span class="status-badge status-on"><i class="fa-solid fa-circle" style="font-size:6px;"></i> RUNNING</span>
                 <div class="metric-row">
                     <div class="metric-box"><div class="metric-val">{status.get('pid','-')}</div><div class="metric-lbl">PID</div></div>
-                    <div class="metric-box"><div class="metric-val">{status.get('cpu_percent',0)}%</div><div class="metric-lbl">CPU</div></div>
-                    <div class="metric-box"><div class="metric-val">{status.get('memory_mb',0)}</div><div class="metric-lbl">MB</div></div>
+                    <div class="metric-box"><div class="metric-val">{status.get('cpu_percent') or 0}%</div><div class="metric-lbl">CPU</div></div>
+                    <div class="metric-box"><div class="metric-val">{status.get('memory_mb') or 0}</div><div class="metric-lbl">MB</div></div>
                     <div class="metric-box"><div class="metric-val">{status.get('uptime_formatted','-')}</div><div class="metric-lbl">Uptime</div></div>
                 </div>
             </div>
             <div class="metric-row">
-                <div class="metric-box"><div class="metric-val">{today_stats.get('total_events',0)}</div><div class="metric-lbl">Today</div></div>
-                <div class="metric-box"><div class="metric-val">{sync_stats.get('synced',0)}</div><div class="metric-lbl">Synced</div></div>
-                <div class="metric-box"><div class="metric-val" style="color:#DC2626;">{sync_stats.get('failed',0)}</div><div class="metric-lbl">Failed</div></div>
+                <div class="metric-box"><div class="metric-val">{today_stats.get('total_events') or 0}</div><div class="metric-lbl">Today</div></div>
+                <div class="metric-box"><div class="metric-val">{sync_stats.get('synced') or 0}</div><div class="metric-lbl">Synced</div></div>
+                <div class="metric-box"><div class="metric-val" style="color:#DC2626;">{sync_stats.get('failed') or 0}</div><div class="metric-lbl">Failed</div></div>
             </div>
         </div>
         """
@@ -1522,8 +1522,8 @@ elif current_page == "bridge":
         <div class="bridge-header">
             <span class="status-badge status-off"><i class="fa-solid fa-circle" style="font-size:6px;"></i> STOPPED</span>
             <div class="metric-row">
-                <div class="metric-box"><div class="metric-val">{today_stats.get('total_events',0)}</div><div class="metric-lbl">Today</div></div>
-                <div class="metric-box"><div class="metric-val">{sync_stats.get('synced',0)}</div><div class="metric-lbl">Synced</div></div>
+                <div class="metric-box"><div class="metric-val">{today_stats.get('total_events') or 0}</div><div class="metric-lbl">Today</div></div>
+                <div class="metric-box"><div class="metric-val">{sync_stats.get('synced') or 0}</div><div class="metric-lbl">Synced</div></div>
             </div>
         </div>
         """
@@ -1790,9 +1790,9 @@ elif current_page == "controls":
         <div class="stat-row">
             {webhook_badge}
             <div class="stat-box"><div class="stat-val">{event_ctrl.get_event_count():,}</div><div class="stat-lbl">Total</div></div>
-            <div class="stat-box"><div class="stat-val success">{sync_stats.get('synced', 0):,}</div><div class="stat-lbl">Synced</div></div>
-            <div class="stat-box"><div class="stat-val warning">{sync_stats.get('pending', 0):,}</div><div class="stat-lbl">Pending</div></div>
-            <div class="stat-box"><div class="stat-val danger">{sync_stats.get('failed', 0):,}</div><div class="stat-lbl">Failed</div></div>
+            <div class="stat-box"><div class="stat-val success">{sync_stats.get('synced') or 0:,}</div><div class="stat-lbl">Synced</div></div>
+            <div class="stat-box"><div class="stat-val warning">{sync_stats.get('pending') or 0:,}</div><div class="stat-lbl">Pending</div></div>
+            <div class="stat-box"><div class="stat-val danger">{sync_stats.get('failed') or 0:,}</div><div class="stat-lbl">Failed</div></div>
         </div>
     </div>
     """
@@ -1976,7 +1976,7 @@ elif current_page == "configuration":
     _db_health = _get_db().check_connection()
     _db_ok = _db_health['ok']
     _db_details = _db_health.get('details', {})
-    db_badge = f'<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;background:#DCFCE7;color:#166534;"><i class="fa-solid fa-database" style="font-size:8px;"></i> DB OK ({_db_details.get("events_count", 0)} events, {_db_details.get("tables_count", 0)} tables)</span>' if _db_ok else f'<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;background:#FEE2E2;color:#991B1B;"><i class="fa-solid fa-database" style="font-size:8px;"></i> DB ERROR</span>'
+    db_badge = f'<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;background:#DCFCE7;color:#166534;"><i class="fa-solid fa-database" style="font-size:8px;"></i> DB OK ({_db_details.get("events_count") or 0} events, {_db_details.get("tables_count") or 0} tables)</span>' if _db_ok else f'<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;background:#FEE2E2;color:#991B1B;"><i class="fa-solid fa-database" style="font-size:8px;"></i> DB ERROR</span>'
     
     header_html = f"""
     <div class="config-header">
@@ -2165,7 +2165,7 @@ elif current_page == "device_sync":
             </div>
             <div class="device-info">
                 <div class="info-box"><div class="info-val">{db_event_count}</div><div class="info-lbl">In DB</div></div>
-                <div class="info-box"><div class="info-val">{sync_stats.get('synced', 0)}</div><div class="info-lbl">Synced</div></div>
+                <div class="info-box"><div class="info-val">{sync_stats.get('synced') or 0}</div><div class="info-lbl">Synced</div></div>
             </div>
         </div>
         """
@@ -2318,9 +2318,9 @@ elif current_page == "device_sync":
                 st.markdown(f"""
                 <div class="history-row">
                     <span>{sync_date}</span>
-                    <span><strong>{entry.get('event_count', 0)}</strong> events</span>
-                    <span style="color:#10B981;">{entry.get('synced_count', 0)} synced</span>
-                    <span style="color:#F59E0B;">{entry.get('pending_count', 0)} pending</span>
+                    <span><strong>{entry.get('event_count') or 0}</strong> events</span>
+                    <span style="color:#10B981;">{entry.get('synced_count') or 0} synced</span>
+                    <span style="color:#F59E0B;">{entry.get('pending_count') or 0} pending</span>
                 </div>
                 """, unsafe_allow_html=True)
         else:
@@ -2333,9 +2333,9 @@ elif current_page == "device_sync":
         
         stats_data = {
             "Total Events": f"{db_event_count:,}",
-            "Synced to Webhook": f"{sync_stats.get('synced', 0):,}",
-            "Pending Sync": f"{sync_stats.get('pending', 0):,}",
-            "Failed": f"{sync_stats.get('failed', 0):,}"
+            "Synced to Webhook": f"{sync_stats.get('synced') or 0:,}",
+            "Pending Sync": f"{sync_stats.get('pending') or 0:,}",
+            "Failed": f"{sync_stats.get('failed') or 0:,}"
         }
         
         for label, value in stats_data.items():
@@ -2408,15 +2408,15 @@ elif current_page == "upload_sync":
         <div style="display:flex;align-items:center;gap:12px;">
             <span class="webhook-badge {badge_class}"><i class="fa-solid fa-circle" style="font-size:6px;"></i> {badge_text}</span>
             <div class="stat-row">
-                <div class="stat-box"><div class="stat-val">{overall.get('total', 0):,}</div><div class="stat-lbl">Total</div></div>
-                <div class="stat-box"><div class="stat-val synced">{overall.get('synced', 0):,}</div><div class="stat-lbl">Synced</div></div>
-                <div class="stat-box"><div class="stat-val pending">{overall.get('pending', 0):,}</div><div class="stat-lbl">Pending</div></div>
-                <div class="stat-box"><div class="stat-val failed">{overall.get('failed', 0):,}</div><div class="stat-lbl">Failed</div></div>
+                <div class="stat-box"><div class="stat-val">{overall.get('total') or 0:,}</div><div class="stat-lbl">Total</div></div>
+                <div class="stat-box"><div class="stat-val synced">{overall.get('synced') or 0:,}</div><div class="stat-lbl">Synced</div></div>
+                <div class="stat-box"><div class="stat-val pending">{overall.get('pending') or 0:,}</div><div class="stat-lbl">Pending</div></div>
+                <div class="stat-box"><div class="stat-val failed">{overall.get('failed') or 0:,}</div><div class="stat-lbl">Failed</div></div>
             </div>
         </div>
         <div class="stat-row">
-            <div class="stat-box"><div class="stat-val">{sync_stats.get('sync_rate_24h', 0)}%</div><div class="stat-lbl">24h Rate</div></div>
-            <div class="stat-box"><div class="stat-val">{today.get('synced', 0)}</div><div class="stat-lbl">Today</div></div>
+            <div class="stat-box"><div class="stat-val">{sync_stats.get('sync_rate_24h') or 0}%</div><div class="stat-lbl">24h Rate</div></div>
+            <div class="stat-box"><div class="stat-val">{today.get('synced') or 0}</div><div class="stat-lbl">Today</div></div>
         </div>
     </div>
     """
@@ -2442,7 +2442,7 @@ elif current_page == "upload_sync":
             with st.spinner("Testing..."):
                 result = upload_sync_ctrl.test_webhook()
                 if result['success']:
-                    st.toast(f"Webhook OK! ({result.get('response_time', 0):.2f}s)")
+                    st.toast(f"Webhook OK! ({result.get('response_time') or 0:.2f}s)")
                 else:
                     st.toast(f"Failed: {result['message']}")
             st.query_params["page"] = "upload_sync"
@@ -2616,7 +2616,7 @@ elif current_page == "upload_sync":
             with history_box:
                 for entry in history:
                     sync_hour = entry.get('sync_hour', '-')
-                    count = entry.get('count', 0)
+                    count = entry.get('count') or 0
                     st.markdown(f"""
                     <div class="history-item">
                         <span>{sync_hour}</span>
@@ -2632,10 +2632,10 @@ elif current_page == "upload_sync":
         st.markdown('<p class="sync-title"><i class="fa-solid fa-calendar-day" style="color:#A22431;"></i> Today\'s Summary</p>', unsafe_allow_html=True)
         
         today_data = {
-            "Total Events": today.get('total', 0),
-            "Synced": today.get('synced', 0),
-            "Pending": today.get('pending', 0),
-            "Failed": today.get('failed', 0)
+            "Total Events": today.get('total') or 0,
+            "Synced": today.get('synced') or 0,
+            "Pending": today.get('pending') or 0,
+            "Failed": today.get('failed') or 0
         }
         
         for label, value in today_data.items():
