@@ -22,7 +22,16 @@ class Database:
     def __init__(self):
         """Initialize database connection pool"""
         self.pool = None
+        self._auto_init_schema()
         self._create_pool()
+    
+    def _auto_init_schema(self):
+        """Ensure database and tables exist before creating the pool."""
+        try:
+            from db_init import ensure_database
+            ensure_database()
+        except Exception as e:
+            logger.warning(f"Auto-init schema check: {e}")
     
     def _create_pool(self):
         """Create MySQL connection pool"""
