@@ -430,9 +430,10 @@ class HikvisionBridge:
             if info_list:
                 self.logger.info(f"Polled {len(info_list)} events from device (total matches: {total})")
                 for i, evt in enumerate(info_list):
-                    self.logger.debug(
+                    emp = evt.get('employeeNoString') or evt.get('employeeNo', '-')
+                    self.logger.info(
                         f"  Event[{i}]: serial={evt.get('serialNo')}, "
-                        f"employee={evt.get('employeeNoString') or evt.get('employeeNo', '-')}, "
+                        f"employee={emp}, "
                         f"name={evt.get('name', '-')}, time={evt.get('time', '-')}, "
                         f"door={evt.get('doorNo', '-')}, mode={evt.get('currentVerifyMode', '-')}"
                     )
@@ -466,6 +467,26 @@ class HikvisionBridge:
             # Parse time
             event_time = event.get('time', datetime.now().isoformat())
             
+            # Extract employee number robustly:
+            # Hikvision uses employeeNoString (string) or employeeNo (int)
+            employee_no = event.get('employeeNoString') or ''
+            if not employee_no:
+                raw_no = event.get('employeeNo')
+                if raw_no is not None:
+                    employee_no = str(raw_no)
+            employee_no = employee_no.strip() if employee_no else None
+            
+            # Extract employee name robustly:
+            # Try 'name' first, then check nested structures
+            emp_name = event.get('name') or ''
+            emp_name = emp_name.strip() if emp_name else None
+            
+            # Log raw keys for debugging on first few events
+            self.logger.debug(f"Raw event keys: {list(event.keys())}, "
+                              f"employeeNoString={event.get('employeeNoString')!r}, "
+                              f"employeeNo={event.get('employeeNo')!r}, "
+                              f"name={event.get('name')!r}")
+            
             # Build event data
             event_data = {
                 'device_ip': self.device_ip,
@@ -478,8 +499,8 @@ class HikvisionBridge:
                 # Access control fields
                 'major_event_type': event.get('major'),
                 'sub_event_type': event.get('minor'),
-                'employee_no': event.get('employeeNoString') or event.get('employeeNo'),
-                'name': event.get('name'),
+                'employee_no': employee_no,
+                'name': emp_name,
                 'card_no': event.get('cardNo'),
                 'door_no': event.get('doorNo'),
                 'verify_mode': event.get('currentVerifyMode'),

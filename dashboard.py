@@ -990,8 +990,7 @@ elif current_page == "events":
         if st.button("Refresh", use_container_width=True, key="ev_refresh"):
             st.rerun()
     with c6:
-        # Export button placeholder
-        export_clicked = st.button("Export", use_container_width=True, key="ev_export")
+        pass  # Export button rendered after data query below
     
     # === DELETE CONTROLS ===
     if 'confirm_delete_all' not in st.session_state:
@@ -1049,11 +1048,21 @@ elif current_page == "events":
     events = event_ctrl.get_events_as_dicts(limit=limit, start_date=start_date, end_date=end_date, event_type=event_type)
     total_count = event_ctrl.get_event_count(start_date=start_date, end_date=end_date, event_type=event_type)
     
-    # Export handler
-    if export_clicked and events:
-        df_export = pd.DataFrame(events)
-        csv = df_export.to_csv(index=False)
-        st.download_button("Download CSV", csv, f"events_{datetime.now().strftime('%Y%m%d')}.csv", "text/csv", key="download_csv")
+    # Now render the export button (needs events data to be available)
+    with c6:
+        if events:
+            df_export = pd.DataFrame(events)
+            csv_data = df_export.to_csv(index=False)
+            st.download_button(
+                "⬇ Export CSV",
+                csv_data,
+                f"events_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                "text/csv",
+                use_container_width=True,
+                key="download_csv"
+            )
+        else:
+            st.button("⬇ Export CSV", use_container_width=True, disabled=True, key="ev_export_disabled")
     
     # Enhanced status line with visual styling
     st.markdown(f"""
