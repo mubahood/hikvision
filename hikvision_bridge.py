@@ -428,7 +428,16 @@ class HikvisionBridge:
             info_list = acs_event.get('InfoList', [])
             
             if info_list:
-                self.logger.debug(f"Polled {len(info_list)} events (total: {total})")
+                self.logger.info(f"Polled {len(info_list)} events from device (total matches: {total})")
+                for i, evt in enumerate(info_list):
+                    self.logger.debug(
+                        f"  Event[{i}]: serial={evt.get('serialNo')}, "
+                        f"employee={evt.get('employeeNoString') or evt.get('employeeNo', '-')}, "
+                        f"name={evt.get('name', '-')}, time={evt.get('time', '-')}, "
+                        f"door={evt.get('doorNo', '-')}, mode={evt.get('currentVerifyMode', '-')}"
+                    )
+            else:
+                self.logger.debug(f"Poll cycle: 0 events (total matches: {total})")
             
             return info_list
             
@@ -564,6 +573,21 @@ class HikvisionBridge:
     def run(self):
         """Main polling loop"""
         self.logger.info("Starting Hikvision ISAPI Bridge (Polling Mode)")
+        self.logger.info(f"Config -> IP: {self.device_ip}, User: {self.device_user}, ID: {self.device_id}")
+        self.logger.info(f"Config -> Poll: {self.poll_interval}s, Batch: {self.batch_size}, Upload batch: {self.batch_upload_size}")
+        self.logger.info(f"Config -> Webhook: {self.webhook_url or 'NOT SET'}")
+        self.logger.info(f"Config -> Last serial: {self.last_serial_no}, Processed set: {len(self.processed_serials)}")
+        self.logger.info(f"Config -> DB available: {self.db is not None}")
+        
+        # Check DB health
+        if self.db:
+            db_health = self.db.check_connection()
+            if db_health['ok']:
+                details = db_health['details']
+                self.logger.info(f"DB OK -> {details.get('database')}@{details.get('host')}, "
+                                 f"tables: {details.get('tables_count')}, events: {details.get('events_count')}")
+            else:
+                self.logger.error(f"DB ERROR -> {db_health['message']}")
         
         # Initial device check
         if not self._check_device_status():

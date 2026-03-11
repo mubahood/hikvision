@@ -22,16 +22,48 @@ class Database:
     def __init__(self):
         """Initialize database connection pool"""
         self.pool = None
-        self._auto_init_schema()
         self._create_pool()
     
-    def _auto_init_schema(self):
-        """Ensure database and tables exist before creating the pool."""
+    def check_connection(self) -> dict:
+        """Check if the database connection is healthy.
+        Returns dict with 'ok' (bool), 'message' (str), and 'details' (dict)."""
+        result = {'ok': False, 'message': '', 'details': {}}
+        conn = None
         try:
-            from db_init import ensure_database
-            ensure_database()
+            conn = self.get_connection()
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute('SELECT 1 AS ping')
+            cursor.fetchone()
+            
+            # Check tables exist
+            cursor.execute('SHOW TABLES')
+            tables = [r[list(r.keys())[0]] for r in cursor.fetchall()]
+            
+            # Count events
+            event_count = 0
+            if 'events' in tables:
+                cursor.execute('SELECT COUNT(*) AS cnt FROM events')
+                event_count = cursor.fetchone()['cnt']
+            
+            cursor.close()
+            result['ok'] = True
+            result['message'] = 'Connected'
+            result['details'] = {
+                'host': os.getenv('DB_HOST', 'localhost'),
+                'database': os.getenv('DB_NAME', 'hikvision'),
+                'tables': tables,
+                'tables_count': len(tables),
+                'events_count': event_count,
+            }
         except Exception as e:
-            logger.warning(f"Auto-init schema check: {e}")
+            result['message'] = str(e)
+        finally:
+            if conn:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+        return result
     
     def _create_pool(self):
         """Create MySQL connection pool"""

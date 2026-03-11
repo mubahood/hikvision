@@ -848,8 +848,15 @@ if current_page == "overview":
         # System Health
         st.markdown('<p class="section-title"><i class="fa-solid fa-heart-pulse" style="color:#A22431;"></i> System Health</p>', unsafe_allow_html=True)
         
+        # Check DB health
+        from database import get_db
+        db_health = get_db().check_connection()
+        db_ok = db_health['ok']
+        db_label = f"DB ({db_health['details'].get('events_count', 0)} events)" if db_ok else f"DB Error"
+        
         health_items = [
             ("Bridge", "Running" if is_running else "Stopped", is_running),
+            ("Database", db_label if db_ok else db_health['message'][:30], db_ok),
             ("Device", "Connected" if device_ctrl.get_device_status().get('connected') else "Offline", device_ctrl.get_device_status().get('connected')),
             ("Webhook", "Configured" if upload_sync_ctrl.get_webhook_config()['configured'] else "Not Set", upload_sync_ctrl.get_webhook_config()['configured']),
         ]
@@ -1876,9 +1883,16 @@ elif current_page == "configuration":
     # === HEADER ===
     conn_badge = '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;background:#DCFCE7;color:#166534;"><i class="fa-solid fa-plug" style="font-size:8px;"></i> DEVICE CONNECTED</span>' if is_connected else '<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;background:#FEE2E2;color:#991B1B;"><i class="fa-solid fa-plug-circle-xmark" style="font-size:8px;"></i> DEVICE OFFLINE</span>'
     
+    # DB connection badge
+    from database import get_db as _get_db
+    _db_health = _get_db().check_connection()
+    _db_ok = _db_health['ok']
+    _db_details = _db_health.get('details', {})
+    db_badge = f'<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;background:#DCFCE7;color:#166534;"><i class="fa-solid fa-database" style="font-size:8px;"></i> DB OK ({_db_details.get("events_count", 0)} events, {_db_details.get("tables_count", 0)} tables)</span>' if _db_ok else f'<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;background:#FEE2E2;color:#991B1B;"><i class="fa-solid fa-database" style="font-size:8px;"></i> DB ERROR</span>'
+    
     header_html = f"""
     <div class="config-header">
-        {conn_badge}
+        {conn_badge} {db_badge}
         <span style="font-size:10px;color:#6B7280;"><i class="fa-solid fa-server" style="margin-right:4px;"></i>{config.get('device_ip', '192.168.1.128')}</span>
     </div>
     """
