@@ -1003,7 +1003,15 @@ elif current_page == "events":
             st.markdown('<div style="font-size:11px;color:#6B7280;margin-bottom:4px;">Delete events older than</div>', unsafe_allow_html=True)
             del_days = st.number_input("Days", min_value=1, max_value=3650, value=90, label_visibility="collapsed", key="del_days")
             if st.button(f"Delete Older Than {del_days} Days", use_container_width=True, key="btn_del_old"):
-                deleted = event_ctrl.delete_old_events(days=del_days)
+                from database import get_db as _gdb
+                _db = _gdb()
+                conn = _db.get_connection()
+                cur = conn.cursor()
+                cutoff = datetime.now() - timedelta(days=del_days)
+                cur.execute("DELETE FROM events WHERE occur_time < %s", (cutoff,))
+                deleted = cur.rowcount
+                cur.close()
+                conn.close()
                 st.toast(f"Deleted {deleted} event(s) older than {del_days} days.")
                 st.rerun()
         
@@ -1033,7 +1041,14 @@ elif current_page == "events":
                 yes_col, no_col = st.columns(2)
                 with yes_col:
                     if st.button("Yes, Delete All", use_container_width=True, key="btn_confirm_del", type="primary"):
-                        deleted = event_ctrl.delete_all_events()
+                        from database import get_db as _gdb
+                        _db = _gdb()
+                        conn = _db.get_connection()
+                        cur = conn.cursor()
+                        cur.execute("DELETE FROM events")
+                        deleted = cur.rowcount
+                        cur.close()
+                        conn.close()
                         st.session_state.confirm_delete_all = False
                         st.toast(f"Deleted all {deleted} event(s).")
                         st.rerun()
@@ -1256,7 +1271,13 @@ elif current_page == "events":
                         st.rerun()
                 with btn_del:
                     if st.button("Delete This Event", use_container_width=True, key="del_single_event", type="primary"):
-                        event_ctrl.delete_event(st.session_state.view_event_id)
+                        from database import get_db as _gdb
+                        _db = _gdb()
+                        conn = _db.get_connection()
+                        cur = conn.cursor()
+                        cur.execute("DELETE FROM events WHERE id = %s", (st.session_state.view_event_id,))
+                        cur.close()
+                        conn.close()
                         st.session_state.view_event_id = None
                         st.toast(f"Event #{event_data.get('id')} deleted.")
                         st.rerun()
