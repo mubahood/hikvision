@@ -50,12 +50,23 @@ pkill -f "hikvision_bridge.py" 2>/dev/null || true
 pkill -f "streamlit run dashboard" 2>/dev/null || true
 sleep 1
 
-# Start bridge in background
-echo -e "${GREEN}🚀 Starting bridge...${NC}"
-nohup python hikvision_bridge.py > bridge_output.log 2>&1 &
+# Start bridge in background with auto-restart watchdog
+echo -e "${GREEN}🚀 Starting bridge (with auto-restart watchdog)...${NC}"
+nohup bash -c '
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "'"$SCRIPT_DIR"'"
+source .venv/bin/activate
+while true; do
+    echo "[$(date)] Bridge starting..." >> bridge_watchdog.log
+    python hikvision_bridge.py >> bridge_output.log 2>&1
+    EXIT_CODE=$?
+    echo "[$(date)] Bridge exited with code $EXIT_CODE — restarting in 5s..." >> bridge_watchdog.log
+    sleep 5
+done
+' > /dev/null 2>&1 &
 BRIDGE_PID=$!
 echo $BRIDGE_PID > bridge.pid
-echo -e "   Bridge PID: ${BRIDGE_PID}"
+echo -e "   Bridge watchdog PID: ${BRIDGE_PID}"
 
 # Wait for bridge to start
 sleep 2

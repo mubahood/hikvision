@@ -14,14 +14,15 @@ NC='\033[0m' # No Color
 echo -e "${RED}🛑 Stopping HikVision Bulletproof${NC}"
 echo "================================"
 
-# Stop bridge
+# Stop bridge (watchdog + python process)
 if [ -f "bridge.pid" ]; then
     BRIDGE_PID=$(cat bridge.pid)
     if ps -p $BRIDGE_PID > /dev/null 2>&1; then
-        echo -e "${YELLOW}Stopping bridge (PID: $BRIDGE_PID)...${NC}"
-        kill $BRIDGE_PID 2>/dev/null || true
+        echo -e "${YELLOW}Stopping bridge watchdog (PID: $BRIDGE_PID)...${NC}"
+        # Kill the entire process group
+        kill -- -$BRIDGE_PID 2>/dev/null || kill $BRIDGE_PID 2>/dev/null || true
         sleep 1
-        kill -9 $BRIDGE_PID 2>/dev/null || true
+        kill -9 -- -$BRIDGE_PID 2>/dev/null || kill -9 $BRIDGE_PID 2>/dev/null || true
     fi
     rm -f bridge.pid
 fi

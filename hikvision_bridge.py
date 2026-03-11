@@ -9,6 +9,7 @@ import os
 import sys
 import time
 import logging
+import traceback
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, Set
 import json
@@ -125,6 +126,19 @@ class HikvisionBridge:
                 if result and result['max_serial']:
                     self.last_serial_no = result['max_serial']
                     self.logger.info(f"Resuming from serial number: {self.last_serial_no}")
+                
+                # Also load recent serial numbers into processed_serials set
+                # to prevent re-inserting events that are within the 5-minute poll window
+                cursor.execute(
+                    'SELECT serial_no FROM events WHERE device_ip = %s AND created_at >= NOW() - INTERVAL 10 MINUTE',
+                    (self.device_ip,)
+                )
+                for row in cursor.fetchall():
+                    if row['serial_no']:
+                        self.processed_serials.add(row['serial_no'])
+                if self.processed_serials:
+                    self.logger.info(f"Loaded {len(self.processed_serials)} recent serials into dedup set")
+                    
             except Exception as e:
                 self.logger.warning(f"Could not load last serial: {e}")
             finally:
@@ -452,7 +466,7 @@ class HikvisionBridge:
             self.logger.error(f"Poll JSON decode error: {e}")
             return []
         except Exception as e:
-            self.logger.error(f"Poll error: {e}")
+            self.logger.error(f"Poll error: {e}\n{traceback.format_exc()}")
             return []
     
     def _parse_polled_event(self, event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -516,8 +530,32 @@ class HikvisionBridge:
             self.logger.error(f"Error parsing polled event: {e}")
             return None
     
+    def _event_exists_in_db(self, serial_no: int) -> bool:
+        """Check if event with this serial_no already exists in database"""
+        if not self.db or not serial_no:
+            return False
+        conn = None
+        cursor = None
+        try:
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                'SELECT 1 FROM events WHERE serial_no = %s AND device_ip = %s LIMIT 1',
+                (serial_no, self.device_ip)
+            )
+            return cursor.fetchone() is not None
+        except Exception:
+            return False
+        finally:
+            if cursor:
+                try: cursor.close()
+                except Exception: pass
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
     def _save_event(self, event_data: Dict[str, Any]) -> Optional[int]:
-        """Save event data to database"""
+        """Save event data to database (with duplicate prevention)"""
         try:
             # Get event details
             employee_no = event_data.get('employee_no')
@@ -526,6 +564,15 @@ class HikvisionBridge:
             sub_event = event_data.get('sub_event_type', 'N/A')
             major_event = event_data.get('major_event_type', 'N/A')
             serial_no = event_data.get('serial_no', 0)
+            
+            # Duplicate prevention: skip if this serial_no is already in DB or processed set
+            # This is NOT filtering — it prevents the same physical event from being saved twice
+            if serial_no and serial_no in self.processed_serials:
+                return None  # Already processed in this session
+            
+            if serial_no and self._event_exists_in_db(serial_no):
+                self.processed_serials.add(serial_no)
+                return None  # Already in database
             
             self.logger.info(f"✅ New event: serial={serial_no}, employee={employee_no or '-'}, name={name or '-'}, minor={sub_event}, mode={verify_mode}")
             
@@ -548,19 +595,22 @@ class HikvisionBridge:
                         self.processed_serials.add(serial_no)
                         self.last_serial_no = max(self.last_serial_no, serial_no)
                         
-                        # Immediately sync to webhook
-                        self._sync_event_immediately(event_id, event_data)
+                        # Keep processed_serials bounded (max 50000 entries)
+                        if len(self.processed_serials) > 50000:
+                            # Remove oldest entries (smallest serial numbers)
+                            sorted_serials = sorted(self.processed_serials)
+                            self.processed_serials = set(sorted_serials[-25000:])
                         
                         return event_id
                 except Exception as e:
-                    self.logger.error(f"Database save failed: {e}")
+                    self.logger.error(f"Database save failed: {e}\n{traceback.format_exc()}")
                     return None
             else:
                 self.logger.error("Database not available")
                 return None
             
         except Exception as e:
-            self.logger.error(f"Failed to save event: {e}")
+            self.logger.error(f"Failed to save event: {e}\n{traceback.format_exc()}")
             return None
     
     def _check_device_status(self) -> bool:
@@ -619,18 +669,33 @@ class HikvisionBridge:
                 if events:
                     consecutive_errors = 0  # Reset error count on success
                     
-                    # Process each event
-                    new_events = 0
+                    # PHASE 1: Save all events to database first (fast, no HTTP)
+                    new_event_ids = []
+                    new_event_datas = []
                     for event in events:
-                        event_data = self._parse_polled_event(event)
-                        if event_data:
-                            # Save every event
-                            event_id = self._save_event(event_data)
-                            if event_id:
-                                new_events += 1
+                        try:
+                            event_data = self._parse_polled_event(event)
+                            if event_data:
+                                event_id = self._save_event(event_data)
+                                if event_id:
+                                    new_event_ids.append(event_id)
+                                    new_event_datas.append(event_data)
+                        except Exception as e:
+                            self.logger.error(f"Error processing event: {e}\n{traceback.format_exc()}")
+                            continue
                     
-                    if new_events > 0:
-                        self.logger.info(f"📊 Processed {new_events} new event(s)")
+                    if new_event_ids:
+                        self.logger.info(f"📊 Saved {len(new_event_ids)} new event(s)")
+                    
+                    # PHASE 2: Sync saved events to webhook (separate from save loop)
+                    # This way webhook errors can NEVER affect event saving
+                    for event_id, event_data in zip(new_event_ids, new_event_datas):
+                        try:
+                            self._sync_event_immediately(event_id, event_data)
+                        except Exception as e:
+                            self.logger.error(f"Webhook sync error for event {event_id}: {e}")
+                            # Continue syncing other events - don't let one failure stop all
+                            continue
                 else:
                     consecutive_errors = 0  # No events is not an error
                 
@@ -641,14 +706,21 @@ class HikvisionBridge:
                 self.logger.info("Interrupted by user")
                 self.stop()
                 break
-            except Exception as e:
+            except BaseException as e:
+                # Catch EVERYTHING including SystemExit, so we never die silently
                 consecutive_errors += 1
-                self.logger.error(f"Error in polling loop: {e}")
+                self.logger.error(f"CRITICAL error in polling loop: {type(e).__name__}: {e}\n{traceback.format_exc()}")
+                
+                # If it's SystemExit or KeyboardInterrupt, re-raise after logging
+                if isinstance(e, (SystemExit, KeyboardInterrupt)):
+                    self.logger.error("Bridge received exit signal — shutting down")
+                    self.stop()
+                    break
                 
                 # Backoff on consecutive errors
                 if consecutive_errors > 5:
                     backoff = min(30, consecutive_errors * 2)
-                    self.logger.warning(f"Multiple errors, backing off for {backoff}s")
+                    self.logger.warning(f"Multiple errors ({consecutive_errors}), backing off for {backoff}s")
                     time.sleep(backoff)
                 else:
                     time.sleep(self.poll_interval)
@@ -679,6 +751,29 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
-    # Create and run bridge
-    bridge = HikvisionBridge()
-    bridge.run()
+    # Last-resort crash logging wrapper
+    try:
+        bridge = HikvisionBridge()
+        bridge.run()
+    except BaseException as e:
+        # This catches ANYTHING that escapes the run() loop
+        crash_msg = f"FATAL CRASH: {type(e).__name__}: {e}\n{traceback.format_exc()}"
+        
+        # Try to log to file since logger might be dead
+        try:
+            with open('bridge_crash.log', 'a') as f:
+                f.write(f"\n{'='*60}\n")
+                f.write(f"CRASH AT: {datetime.now().isoformat()}\n")
+                f.write(crash_msg)
+                f.write(f"\n{'='*60}\n")
+        except Exception:
+            pass
+        
+        # Also try the logger
+        try:
+            logging.error(crash_msg)
+        except Exception:
+            pass
+        
+        print(crash_msg, file=sys.stderr)
+        sys.exit(1)
