@@ -20,16 +20,18 @@ class DeviceController:
     """Controller for direct device communication and manual sync"""
     
     def __init__(self):
-        self.device_ip = os.getenv('DEVICE_IP', '192.168.1.128')
-        self.device_user = os.getenv('DEVICE_USER', 'admin')
-        self.device_pass = os.getenv('DEVICE_PASS', '11111111.')
-        self.base_url = f"http://{self.device_ip}"
-        self.auth = HTTPDigestAuth(self.device_user, self.device_pass)
-        self.timeout = 15
-        
         # Import database here to avoid circular imports
         from database import get_db
         self.db = get_db()
+        
+        # Load device config: DB config table first, .env fallback
+        db_config = self.db.get_config()  # returns {key_name: value}
+        self.device_ip = db_config.get('device_ip') or os.getenv('DEVICE_IP', '192.168.1.128')
+        self.device_user = db_config.get('device_user') or os.getenv('DEVICE_USER', 'admin')
+        self.device_pass = os.getenv('DEVICE_PASS', '')  # password stays in .env only (never stored in DB)
+        self.base_url = f"http://{self.device_ip}"
+        self.auth = HTTPDigestAuth(self.device_user, self.device_pass)
+        self.timeout = 15
     
     def test_connection(self) -> Dict[str, Any]:
         """

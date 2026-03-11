@@ -34,11 +34,19 @@ class HikvisionBridge:
         """Initialize the bridge with configuration from environment"""
         load_dotenv()
         
-        # Device configuration
-        self.device_ip = os.getenv('DEVICE_IP', '192.168.1.128')
-        self.device_user = os.getenv('DEVICE_USER', 'admin')
-        self.device_pass = os.getenv('DEVICE_PASS', '')
-        self.device_id = os.getenv('DEVICE_ID', self.device_ip)
+        # Device configuration: DB config table first, .env fallback
+        # This ensures dashboard "Save Device" changes take effect on restart
+        db_config = {}
+        if DB_AVAILABLE:
+            try:
+                db_config = get_db().get_config()  # {key_name: value}
+            except Exception:
+                pass
+        
+        self.device_ip = db_config.get('device_ip') or os.getenv('DEVICE_IP', '192.168.1.128')
+        self.device_user = db_config.get('device_user') or os.getenv('DEVICE_USER', 'admin')
+        self.device_pass = os.getenv('DEVICE_PASS', '')  # password stays in .env only
+        self.device_id = db_config.get('device_id') or os.getenv('DEVICE_ID', self.device_ip)
         
         # Polling configuration
         self.poll_interval = int(os.getenv('POLL_INTERVAL', '2'))  # seconds between polls
