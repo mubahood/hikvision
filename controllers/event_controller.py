@@ -122,19 +122,79 @@ class EventController:
     def delete_old_events(self, days: int = 90) -> int:
         """Delete events older than specified days"""
         cutoff_date = datetime.now() - timedelta(days=days)
-        return self.db.delete_events_before(cutoff_date)
+        conn = None
+        cursor = None
+        try:
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM events WHERE occur_time < %s", (cutoff_date,))
+            deleted = cursor.rowcount
+            return deleted
+        except Exception as e:
+            logger.error(f"Error deleting old events: {e}")
+            return 0
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
     
     def delete_event(self, event_id: int) -> bool:
         """Delete a single event by ID"""
-        return self.db.delete_event(event_id)
+        conn = None
+        cursor = None
+        try:
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM events WHERE id = %s", (event_id,))
+            return cursor.rowcount > 0
+        except Exception as e:
+            logger.error(f"Error deleting event {event_id}: {e}")
+            return False
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
     
     def delete_events_by_ids(self, event_ids: list) -> int:
         """Delete multiple events by IDs"""
-        return self.db.delete_events_by_ids(event_ids)
+        if not event_ids:
+            return 0
+        conn = None
+        cursor = None
+        try:
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+            placeholders = ','.join(['%s'] * len(event_ids))
+            cursor.execute(f"DELETE FROM events WHERE id IN ({placeholders})", tuple(event_ids))
+            return cursor.rowcount
+        except Exception as e:
+            logger.error(f"Error deleting events by IDs: {e}")
+            return 0
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
     
     def delete_all_events(self) -> int:
         """Delete all events"""
-        return self.db.delete_all_events()
+        conn = None
+        cursor = None
+        try:
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM events")
+            return cursor.rowcount
+        except Exception as e:
+            logger.error(f"Error deleting all events: {e}")
+            return 0
+        finally:
+            if cursor:
+                cursor.close()
+            if conn:
+                conn.close()
     
     def export_events_csv(
         self,
