@@ -77,3 +77,10 @@ test_*.py
 # Streamlit
 .streamlit/secrets.toml
 
+# .NET build artifacts & published binaries
+installer/publish-native/
+installer/publish/
+installer/**/bin/
+installer/**/obj/
+*.exe
+
