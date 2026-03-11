@@ -234,6 +234,7 @@ class DeviceController:
             'total_fetched': 0,
             'new_events': 0,
             'duplicates': 0,
+            'skipped': 0,
             'errors': 0,
             'message': '',
             'started_at': datetime.now().isoformat(),
@@ -302,8 +303,18 @@ class DeviceController:
             if progress_callback:
                 progress_callback(50, "Saving to database...")
             
+            # Hikvision minor codes that represent successful access (employee identified)
+            # 1=legal card, 75=face recognized, 28=fingerprint, 200=legal event
+            SUCCESS_MINOR_CODES = {1, 28, 75, 200}
+            
             for i, event in enumerate(all_events):
                 try:
+                    # Skip events without employee identification
+                    employee_no = (event.get('employeeNoString') or str(event.get('employeeNo', '')) or '').strip()
+                    if not employee_no:
+                        result['skipped'] += 1
+                        continue
+                    
                     # Check if event already exists by serial_no
                     serial_no = event.get('serialNo')
                     if serial_no and self._event_exists(serial_no):
@@ -330,7 +341,9 @@ class DeviceController:
             
             result['success'] = True
             result['completed_at'] = datetime.now().isoformat()
-            result['message'] = f"Synced {result['new_events']} new events, {result['duplicates']} duplicates skipped"
+            result['message'] = (f"Synced {result['new_events']} new events, "
+                                  f"{result['duplicates']} duplicates, "
+                                  f"{result['skipped']} skipped (no employee ID)")
             
             if progress_callback:
                 progress_callback(100, "Sync complete!")
