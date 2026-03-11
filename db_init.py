@@ -234,6 +234,10 @@ def ensure_database():
         if 'config' in created_tables:
             _seed_config(cursor, conn)
 
+        # ── Step 5b: Sync .env values into DB on EVERY startup ──────────
+        #   If the admin changes .env (e.g. new IP), the DB must reflect it.
+        _sync_env_to_config(cursor, conn)
+
         # ── Step 6: Report ───────────────────────────────────────────────
         if created_tables:
             logger.info(f"Database initialized — created tables: {', '.join(created_tables)}")
@@ -289,6 +293,56 @@ def _seed_config(cursor, conn):
 
     conn.commit()
     logger.info(f"Seeded {seeded} config entries")
+
+
+def _sync_env_to_config(cursor, conn):
+    """
+    Sync .env values into the DB config table on every startup.
+    If an env var is set and differs from the DB value, update it.
+    This ensures that changing .env on the server is reflected everywhere.
+    """
+    from mysql.connector import Error
+
+    # Map: env var name → config table key_name
+    _ENV_TO_CONFIG = {
+        'DEVICE_IP':       ('device_ip',       'Hikvision device IP address', 'device'),
+        'DEVICE_USER':     ('device_user',     'Device username',              'device'),
+        'DEVICE_ID':       ('device_id',       'Device identifier',            'device'),
+        'LOG_LEVEL':       ('log_level',       'Logging level',                'system'),
+        'WEBHOOK_URL':     ('webhook_url',     'EHRMS webhook endpoint',       'webhook'),
+        'WEBHOOK_API_KEY': ('webhook_api_key', 'Webhook API key',              'webhook'),
+    }
+
+    # Read current DB values
+    try:
+        cursor.execute("SELECT key_name, value FROM config")
+        db_values = {row[0]: row[1] for row in cursor.fetchall()}
+    except Error:
+        return
+
+    sql = """
+        INSERT INTO config (key_name, value, description, category)
+        VALUES (%s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE value = %s
+    """
+
+    synced = 0
+    for env_var, (key_name, description, category) in _ENV_TO_CONFIG.items():
+        env_val = os.getenv(env_var, '').strip()
+        if not env_val:
+            continue
+        db_val = db_values.get(key_name, '')
+        if env_val != db_val:
+            try:
+                cursor.execute(sql, (key_name, env_val, description, category, env_val))
+                synced += 1
+                logger.info(f"Config synced from .env: {key_name} = {env_val}")
+            except Error as e:
+                logger.warning(f"Could not sync config '{key_name}': {e}")
+
+    if synced:
+        conn.commit()
+        logger.info(f"Synced {synced} config value(s) from .env")
 
 
 # ─── Standalone usage ────────────────────────────────────────────────────────
