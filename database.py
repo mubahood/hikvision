@@ -33,11 +33,15 @@ class Database:
                 'user': os.getenv('DB_USER', 'root'),
                 'password': os.getenv('DB_PASS', 'root'),
                 'database': os.getenv('DB_NAME', 'hikvision'),
-                'unix_socket': os.getenv('DB_SOCKET', '/Applications/MAMP/tmp/mysql/mysql.sock'),
                 'charset': 'utf8mb4',
                 'collation': 'utf8mb4_unicode_ci',
                 'autocommit': True
             }
+            
+            # Only use unix_socket if explicitly set in .env
+            db_socket = os.getenv('DB_SOCKET', '').strip()
+            if db_socket:
+                db_config['unix_socket'] = db_socket
             
             self.pool = pooling.MySQLConnectionPool(
                 pool_name="hikvision_pool",
