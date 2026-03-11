@@ -460,10 +460,6 @@ class HikvisionBridge:
         try:
             serial_no = event.get('serialNo', 0)
             
-            # Skip if already processed
-            if serial_no in self.processed_serials:
-                return None
-            
             # Parse time
             event_time = event.get('time', datetime.now().isoformat())
             
@@ -521,7 +517,7 @@ class HikvisionBridge:
             return None
     
     def _save_event(self, event_data: Dict[str, Any]) -> Optional[int]:
-        """Save event data to database (only events with employee ID)"""
+        """Save event data to database"""
         try:
             # Get event details
             employee_no = event_data.get('employee_no')
@@ -531,12 +527,7 @@ class HikvisionBridge:
             major_event = event_data.get('major_event_type', 'N/A')
             serial_no = event_data.get('serial_no', 0)
             
-            # Filter: Only save events with employee ID (successful recognition)
-            if not employee_no:
-                self.logger.debug(f"⏭️ Skipping: no employee ID (serial={serial_no}, mode={verify_mode})")
-                return None
-            
-            self.logger.info(f"✅ New event: serial={serial_no}, employee={employee_no}, name={name}, mode={verify_mode}")
+            self.logger.info(f"✅ New event: serial={serial_no}, employee={employee_no or '-'}, name={name or '-'}, minor={sub_event}, mode={verify_mode}")
             
             # Increment counter
             self.event_counter += 1
@@ -633,16 +624,7 @@ class HikvisionBridge:
                     for event in events:
                         event_data = self._parse_polled_event(event)
                         if event_data:
-                            serial_no = event_data.get('serial_no', 0)
-                            
-                            # Skip if already processed (by serial number)
-                            if serial_no <= self.last_serial_no:
-                                continue
-                            
-                            if serial_no in self.processed_serials:
-                                continue
-                            
-                            # Save event
+                            # Save every event
                             event_id = self._save_event(event_data)
                             if event_id:
                                 new_events += 1

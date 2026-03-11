@@ -299,28 +299,12 @@ class DeviceController:
             
             result['total_fetched'] = len(all_events)
             
-            # Now save to database, checking for duplicates
+            # Now save to database
             if progress_callback:
                 progress_callback(50, "Saving to database...")
             
-            # Hikvision minor codes that represent successful access (employee identified)
-            # 1=legal card, 75=face recognized, 28=fingerprint, 200=legal event
-            SUCCESS_MINOR_CODES = {1, 28, 75, 200}
-            
             for i, event in enumerate(all_events):
                 try:
-                    # Skip events without employee identification
-                    employee_no = (event.get('employeeNoString') or str(event.get('employeeNo', '')) or '').strip()
-                    if not employee_no:
-                        result['skipped'] += 1
-                        continue
-                    
-                    # Check if event already exists by serial_no
-                    serial_no = event.get('serialNo')
-                    if serial_no and self._event_exists(serial_no):
-                        result['duplicates'] += 1
-                        continue
-                    
                     # Transform and save event
                     event_data = self._transform_device_event(event)
                     event_id = self.db.insert_event(event_data)
@@ -341,9 +325,7 @@ class DeviceController:
             
             result['success'] = True
             result['completed_at'] = datetime.now().isoformat()
-            result['message'] = (f"Synced {result['new_events']} new events, "
-                                  f"{result['duplicates']} duplicates, "
-                                  f"{result['skipped']} skipped (no employee ID)")
+            result['message'] = f"Saved {result['new_events']} events from device ({result['total_fetched']} fetched)"
             
             if progress_callback:
                 progress_callback(100, "Sync complete!")
